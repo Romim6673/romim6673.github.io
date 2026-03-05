@@ -65,6 +65,7 @@ padding:10px;
 margin:6px;
 max-width:65%;
 border-radius:8px;
+word-wrap:break-word;
 }
 
 .me{
@@ -74,6 +75,12 @@ margin-left:auto;
 
 .other{
 background:white;
+}
+
+.time{
+font-size:11px;
+color:gray;
+margin-top:3px;
 }
 
 #inputArea{
@@ -192,14 +199,15 @@ document.getElementById("chat").style.display="flex"
 
 window.send=function(){
 
-let text=document.getElementById("msg").value
+let text=document.getElementById("msg").value.trim()
 
 if(text=="") return
 
 push(ref(db,"messages"),{
 
 name:username,
-text:text
+text:text,
+time:Date.now()
 
 })
 
@@ -221,9 +229,21 @@ div.classList.add("me")
 div.classList.add("other")
 }
 
-div.innerHTML="<b>"+message.name+"</b><br>"+message.text
+let time=new Date(message.time)
+
+let t=time.getHours()+":"+("0"+time.getMinutes()).slice(-2)
+
+let text=message.text.replace(
+/(https?:\/\/[^\s]+)/g,
+'<a href="$1" target="_blank">$1</a>'
+)
+
+div.innerHTML="<b>"+message.name+"</b><br>"+text+"<div class='time'>"+t+"</div>"
 
 document.getElementById("messages").appendChild(div)
+
+document.getElementById("messages").scrollTop=
+document.getElementById("messages").scrollHeight
 
 })
 
@@ -241,7 +261,7 @@ if(confirm("Delete all chat?")){
 
 remove(ref(db,"messages"))
 
-location.reload()
+document.getElementById("messages").innerHTML=""
 
 }
 
