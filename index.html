@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html>
-
 <head>
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,79 +9,58 @@
 <style>
 
 body{
-margin:0;
 font-family:Arial;
 background:#e5ddd5;
-display:flex;
-justify-content:center;
-align-items:center;
-height:100vh;
+margin:0;
 }
 
 #login{
-background:white;
-padding:20px;
-border-radius:10px;
-width:300px;
-box-shadow:0 0 10px rgba(0,0,0,0.1);
-}
-
-input{
-width:100%;
-padding:10px;
-margin:8px 0;
-border-radius:5px;
-border:1px solid #ccc;
-}
-
-button{
-width:100%;
-padding:10px;
-background:#25D366;
-border:none;
-color:white;
-font-size:16px;
-border-radius:5px;
+text-align:center;
+margin-top:120px;
 }
 
 #chat{
 display:none;
-width:100%;
-max-width:500px;
 height:100vh;
+display:flex;
 flex-direction:column;
-background:white;
-}
-
-#header{
-background:#075E54;
-color:white;
-padding:15px;
-font-size:18px;
 }
 
 #messages{
 flex:1;
-padding:10px;
 overflow:auto;
+padding:10px;
 }
 
-.message{
-background:#dcf8c6;
+.msg{
 padding:8px;
+margin:5px;
+max-width:60%;
 border-radius:8px;
-margin:5px 0;
-max-width:70%;
+}
+
+.me{
+background:#dcf8c6;
+margin-left:auto;
+}
+
+.other{
+background:white;
 }
 
 #inputArea{
 display:flex;
 padding:10px;
-border-top:1px solid #ddd;
+background:white;
 }
 
 #msg{
 flex:1;
+padding:10px;
+}
+
+button{
+padding:10px;
 }
 
 </style>
@@ -93,19 +71,15 @@ flex:1;
 
 <div id="login">
 
-<h3>Login</h3>
+<h2>Enter Chat</h2>
 
-<input id="user" placeholder="Username">
+<input id="name" placeholder="Username">
 
-<input id="pass" type="password" placeholder="Password">
-
-<button onclick="login()">Enter Chat</button>
+<button onclick="start()">Start Chat</button>
 
 </div>
 
 <div id="chat">
-
-<div id="header">Private Chat</div>
 
 <div id="messages"></div>
 
@@ -121,63 +95,18 @@ flex:1;
 
 <script>
 
-function login(){
+let username=""
 
-let u=document.getElementById("user").value
-let p=document.getElementById("pass").value
+function start(){
 
-if(u!="" && p!=""){
+username=document.getElementById("name").value
 
 document.getElementById("login").style.display="none"
 document.getElementById("chat").style.display="flex"
 
 }
 
-}
-
-function send(){
-
-let text=document.getElementById("msg").value
-
-if(text=="") return
-
-let div=document.createElement("div")
-
-div.className="message"
-
-div.innerText=text
-
-document.getElementById("messages").appendChild(div)
-
-document.getElementById("msg").value=""
-
-}
-
 </script>
-<script type="module">
-  // Import the functions you need from the SDKs you need
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-analytics.js";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
 
-  // Your web app's Firebase configuration
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-  const firebaseConfig = {
-    apiKey: "AIzaSyA4U3FPOVILcqPpWERz6aUtOwsqHgbSCEk",
-    authDomain: "private-chat-318a6.firebaseapp.com",
-    databaseURL: "https://private-chat-318a6-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "private-chat-318a6",
-    storageBucket: "private-chat-318a6.firebasestorage.app",
-    messagingSenderId: "1082000480834",
-    appId: "1:1082000480834:web:1f6871c095821e865a2bdb",
-    measurementId: "G-V0QKS6H125"
-  };
-
-  // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
-  const analytics = getAnalytics(app);
-</script>
 </body>
-
 </html>
