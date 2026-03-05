@@ -198,19 +198,7 @@ document.getElementById("login").style.display="none"
 
 document.getElementById("chat").style.display="flex"
   
-userRef = ref(db,"status/"+username)
 
-push(ref(db,"status"),{})
-
-import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js")
-.then(m=>{
-const {set,onDisconnect}=m
-
-set(userRef,true)
-
-onDisconnect(userRef).set(false)
-
-})
 }
 
 window.send=function(){
