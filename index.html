@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -29,7 +30,28 @@ flex-direction:column;
 background:#075E54;
 color:white;
 padding:15px;
-font-size:18px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+}
+
+#menu{
+cursor:pointer;
+font-size:22px;
+}
+
+#menuBox{
+display:none;
+position:absolute;
+right:10px;
+top:60px;
+background:white;
+box-shadow:0 2px 10px rgba(0,0,0,0.3);
+}
+
+#menuBox div{
+padding:10px;
+cursor:pointer;
 }
 
 #messages{
@@ -95,7 +117,19 @@ color:white;
 
 <div id="chat">
 
-<div id="header">Private Chat</div>
+<div id="header">
+
+Private Chat
+
+<div id="menu" onclick="toggleMenu()">⋮</div>
+
+</div>
+
+<div id="menuBox">
+
+<div onclick="deleteAll()">Delete All Chat</div>
+
+</div>
 
 <div id="messages"></div>
 
@@ -109,11 +143,36 @@ color:white;
 
 </div>
 
-<script>
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"
+import { getDatabase, ref, push, onChildAdded, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js"
+
+const firebaseConfig = {
+
+apiKey: "AIzaSyA4U3FPOVILcqPpWERz6aUtOwsqHgbSCEk",
+
+authDomain: "private-chat-318a6.firebaseapp.com",
+
+databaseURL: "https://private-chat-318a6-default-rtdb.asia-southeast1.firebasedatabase.app",
+
+projectId: "private-chat-318a6",
+
+storageBucket: "private-chat-318a6.appspot.com",
+
+messagingSenderId: "1082000480834",
+
+appId: "1:1082000480834:web:1f6871c095821e865a2bdb"
+
+}
+
+const app = initializeApp(firebaseConfig)
+
+const db = getDatabase(app)
 
 let username=""
 
-function start(){
+window.start=function(){
 
 username=document.getElementById("name").value
 
@@ -131,31 +190,65 @@ document.getElementById("chat").style.display="flex"
 
 }
 
-function send(){
+window.send=function(){
 
 let text=document.getElementById("msg").value
 
 if(text=="") return
 
+push(ref(db,"messages"),{
+
+name:username,
+text:text
+
+})
+
+document.getElementById("msg").value=""
+
+}
+
+onChildAdded(ref(db,"messages"),function(data){
+
+let message=data.val()
+
 let div=document.createElement("div")
 
 div.classList.add("msg")
 
-if(username=="katis1"){
+if(message.name==username){
 div.classList.add("me")
 }else{
 div.classList.add("other")
 }
 
-div.innerHTML="<b>"+username+"</b><br>"+text
+div.innerHTML="<b>"+message.name+"</b><br>"+message.text
 
 document.getElementById("messages").appendChild(div)
 
-document.getElementById("msg").value=""
+})
+
+window.toggleMenu=function(){
+
+let m=document.getElementById("menuBox")
+
+m.style.display=m.style.display=="block"?"none":"block"
+
+}
+
+window.deleteAll=function(){
+
+if(confirm("Delete all chat?")){
+
+remove(ref(db,"messages"))
+
+location.reload()
+
+}
 
 }
 
 </script>
 
 </body>
+
 </html>
