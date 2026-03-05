@@ -126,10 +126,7 @@ color:white;
 
 <div id="header">
 
-<div>
 Private Chat
-<div id="status" style="font-size:12px">offline</div>
-</div>
 
 <div id="menu" onclick="toggleMenu()">⋮</div>
 
@@ -180,7 +177,7 @@ const app = initializeApp(firebaseConfig)
 
 const db = getDatabase(app)
 
-let userRef=null
+let username=""
 
 window.start=function(){
 
@@ -197,7 +194,6 @@ return
 document.getElementById("login").style.display="none"
 
 document.getElementById("chat").style.display="flex"
-  
 
 }
 
