@@ -126,7 +126,10 @@ color:white;
 
 <div id="header">
 
+<div>
 Private Chat
+<div id="status" style="font-size:12px">offline</div>
+</div>
 
 <div id="menu" onclick="toggleMenu()">⋮</div>
 
@@ -177,7 +180,7 @@ const app = initializeApp(firebaseConfig)
 
 const db = getDatabase(app)
 
-let username=""
+let userRef=null
 
 window.start=function(){
 
@@ -194,7 +197,20 @@ return
 document.getElementById("login").style.display="none"
 
 document.getElementById("chat").style.display="flex"
+  
+userRef = ref(db,"status/"+username)
 
+push(ref(db,"status"),{})
+
+import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js")
+.then(m=>{
+const {set,onDisconnect}=m
+
+set(userRef,true)
+
+onDisconnect(userRef).set(false)
+
+})
 }
 
 window.send=function(){
