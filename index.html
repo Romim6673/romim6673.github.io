@@ -273,4 +273,45 @@ function renderMsg(key,msg){
   wrap.innerHTML='<div class="bubble" data-key="'+key+'">'+inner+'<div class="m-meta"><span class="m-time">'+t+'</span>'+tick+'</div></div>';
   var bub=wrap.querySelector('.bubble'),pt;
   bub.addEventListener('touchstart',function(e){pt=setTimeout(function(){showCtx(e.touches[0].clientX,e.touches[0].clientY,key,isMine);},500);});
-  bub.addEventListener('touchend',function(
+  bub.addEventListener('touchend',function(){clearTimeout(pt);});
+  bub.addEventListener('touchmove',function(){clearTimeout(pt);});
+  bub.addEventListener('contextmenu',function(e){e.preventDefault();showCtx(e.clientX,e.clientY,key,isMine);});
+  area.appendChild(wrap);
+}
+
+function sendMsg(){var inp=document.getElementById('msgInput'),txt=inp.value.trim();if(!txt||!db)return;db.ref('messages').push({sender:curUser,text:txt,type:'text',timestamp:firebase.database.ServerValue.TIMESTAMP,read:false,unsent:false});inp.value='';inp.style.height='auto';closeEmoji();}
+function onKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();}}
+
+function onFileSelect(e){var f=e.target.files[0];if(!f)return;pendingFile=f;var isImg=f.type.startsWith('image/'),im=document.getElementById('prevImg'),vi=document.getElementById('prevVid');if(isImg){im.style.display='block';vi.style.display='none';im.src=URL.createObjectURL(f);}else{vi.style.display='block';im.style.display='none';vi.src=URL.createObjectURL(f);}document.getElementById('prevOverlay').classList.add('open');e.target.value='';}
+function cancelMedia(){pendingFile=null;document.getElementById('prevOverlay').classList.remove('open');}
+function doSendMedia(){if(!pendingFile||!storage)return;document.getElementById('prevOverlay').classList.remove('open');document.getElementById('uploading').classList.add('open');var f=pendingFile,isImg=f.type.startsWith('image/');storage.ref('chat/'+Date.now()+'_'+f.name).put(f).then(function(s){return s.ref.getDownloadURL();}).then(function(url){return db.ref('messages').push({sender:curUser,type:isImg?'image':'video',url:url,timestamp:firebase.database.ServerValue.TIMESTAMP,read:false,unsent:false});}).then(function(){document.getElementById('uploading').classList.remove('open');pendingFile=null;}).catch(function(err){document.getElementById('uploading').classList.remove('open');showToast('Upload failed: '+err.message);});}
+
+function showCtx(x,y,key,isMine){selMsgKey=key;var menu=document.getElementById('ctx');document.getElementById('ctxUnsend').style.display=isMine?'flex':'none';menu.style.left=Math.min(x,window.innerWidth-170)+'px';menu.style.top=Math.min(y,window.innerHeight-110)+'px';menu.classList.add('open');document.getElementById('overlay').classList.add('open');}
+document.getElementById('ctxCopy').onclick=function(){var el=document.querySelector('#msg-'+selMsgKey+' .m-text');if(el&&navigator.clipboard)navigator.clipboard.writeText(el.textContent).then(function(){showToast('Copied!');});closeAll();};
+document.getElementById('ctxUnsend').onclick=function(){if(!selMsgKey||!db)return;db.ref('messages/'+selMsgKey).update({unsent:true,text:'',url:''});showToast('Message unsent for everyone');closeAll();};
+
+function confirmDeleteAll(){closeAll();setTimeout(function(){if(confirm('সব messages permanently delete হবে। Continue?')){if(db)db.ref('messages').remove();showToast('All messages deleted');}},100);}
+
+function initEmoji(){var cats=Object.keys(EMOJIS);document.getElementById('ecats').innerHTML=cats.map(function(c,i){return'<button class="ecat '+(i===0?'on':'')+'\" onclick="showEcat(\''+c+'\',this)">'+c+'</button>';}).join('');showEcatGrid(EMOJIS[cats[0]]);}
+function showEcat(cat,btn){document.querySelectorAll('.ecat').forEach(function(b){b.classList.remove('on');});btn.classList.add('on');showEcatGrid(EMOJIS[cat]);}
+function showEcatGrid(arr){document.getElementById('egrid').innerHTML=arr.map(function(e){return'<div class="ei" onclick="insertEmoji(\''+e+'\')">'+e+'</div>';}).join('');}
+function insertEmoji(e){var inp=document.getElementById('msgInput'),s=inp.selectionStart,en=inp.selectionEnd;inp.value=inp.value.slice(0,s)+e+inp.value.slice(en);inp.selectionStart=inp.selectionEnd=s+e.length;inp.focus();}
+function toggleEmoji(){var box=document.getElementById('emojiBox');if(box.classList.contains('open')){box.classList.remove('open');return;}initEmoji();box.classList.add('open');}
+function closeEmoji(){document.getElementById('emojiBox').classList.remove('open');}
+
+function toggleMenu(){var dd=document.getElementById('dropdown');dd.classList.toggle('open');if(dd.classList.contains('open'))document.getElementById('overlay').classList.add('open');}
+function doLogout(){try{setOnline(false);}catch(e){}try{if(db&&otherUser)db.ref('status/'+otherUser).off();}catch(e){}try{if(msgRef)msgRef.off();}catch(e){}curUser=null;otherUser=null;document.getElementById('chatScreen').style.display='none';document.getElementById('loginScreen').style.display='flex';document.getElementById('msgs').innerHTML='';document.getElementById('upass').value='';closeAll();}
+
+function closeAll(){document.getElementById('ctx').classList.remove('open');document.getElementById('dropdown').classList.remove('open');document.getElementById('overlay').classList.remove('open');closeEmoji();}
+function scrollBot(){setTimeout(function(){var a=document.getElementById('msgs');a.scrollTop=a.scrollHeight;},80);}
+function growInput(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,120)+'px';}
+function eh(t){return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function lnk(t){return t.replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');}
+function fmtDate(d){var n=new Date(),today=new Date(n.getFullYear(),n.getMonth(),n.getDate()),yest=new Date(today-864e5),dt=new Date(d.getFullYear(),d.getMonth(),d.getDate());return dt.getTime()===today.getTime()?'Today':dt.getTime()===yest.getTime()?'Yesterday':d.toLocaleDateString();}
+function fsOpen(url){document.getElementById('fsImgEl').src=url;document.getElementById('fsImg').classList.add('open');}
+function showToast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('open');setTimeout(function(){t.classList.remove('open');},2600);}
+
+initFirebase();
+</script>
+</body>
+</html>
