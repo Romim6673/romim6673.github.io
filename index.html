@@ -1,1 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Flappy Cat 🐱</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;900&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body {
+    width:100%; height:100%;
+    background:#1a1a2e;
+    display:flex; justify-content:center; align-items:center;
+    overflow:hidden; touch-action:none;
+    font-family:'Fredoka One',cursive;
+  }
+  #wrap { position:relative; width:min(100vw,430px); height:min(100vh,720px); }
+  canvas { display:block; width:100%; height:100%; }
+
+  .panel {
+    position:absolute; inset:0;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:12px;
+    pointer-events:none; opacity:0; transition:opacity .2s;
+  }
+  .panel.show { opacity:1; pointer-events:auto; }
+
+  .card {
+    background:rgba(255,255,255,0.93);
+    border-radius:22px; padding:18px 30px;
+    text-align:center; min-width:230px;
+    box-shadow:0 10px 40px rgba(0,0,0,.25);
+    border:3px solid #f4c430;
+  }
+  .title { font-size:clamp(24px,6vw,32px); color:#1a1a2e; text-shadow:2px 2px 0 #f4c430; }
+  .hint  { font-family:'Nunito',sans-serif; font-size:clamp(11px,3vw,14px); font-weight:800; color:#555; animation:pulse 1.3s ease-in-out infinite; }
+  .score-big { font-size:clamp(36px,9vw,50px); color:#1a1a2e; }
+  .lbl { font-family:'Nunito',sans-serif; font-size:clamp(9px,2.3vw,11px); font-weight:900; letter-spacing:2px; color:#999; text-transform:uppercase; margin-bottom:2px; }
+  .row { display:flex; gap:26px; justify-content:center; margin-top:6px; }
+  .col { text-align:center; }
+  .best-v { font-size:clamp(20px,5vw,26px); color:#f59e0b; }
+  .low-v  { font-size:clamp(20px,5vw,26px); color:#60a5fa; }
+
+  .btn {
+    pointer-events:auto; cursor:pointer;
+    background:#f4c430; border:3px solid #c8960a;
+    border-radius:50px; padding:11px 36px;
+    font-family:'Fredoka One',cursive;
+    font-size:clamp(14px,4vw,19px); color:#1a1a2e;
+    box-shadow:0 5px 0 #a07000;
+    transition:transform .08s, box-shadow .08s;
+  }
+  .btn:active { transform:translateY(3px); box-shadow:0 2px 0 #a07000; }
+  .btn-row { display:flex; gap:14px; }
+
+  #hud { position:absolute; inset:0; pointer-events:none; display:none; }
+  #hud.show { display:block; }
+  #coin-hud {
+    position:absolute; top:12px; left:12px;
+    background:rgba(255,255,255,.88);
+    border:2px solid #f4c430; border-radius:50px;
+    padding:5px 14px 5px 10px;
+    display:flex; align-items:center; gap:6px;
+    font-size:clamp(14px,4vw,18px); color:#1a1a2e;
+  }
+  #score-hud {
+    position:absolute; top:12px; left:50%; transform:translateX(-50%);
+    font-size:clamp(28px,7vw,38px); color:#fff;
+    text-shadow:0 3px 0 rgba(0,0,0,.4), 0 0 14px rgba(0,0,0,.2);
+  }
+  #best-hud {
+    position:absolute; top:12px; right:60px;
+    background:rgba(255,255,255,.88);
+    border:2px solid #f4c430; border-radius:50px;
+    padding:5px 14px; font-size:clamp(9px,2.5vw,12px); color:#555;
+    text-align:right; font-family:'Nunito',sans-serif; font-weight:900;
+    line-height:1.6;
+  }
+
+  #pause-btn {
+    position:absolute; top:12px; right:12px;
+    pointer-events:auto; cursor:pointer;
+    width:40px; height:40px; border-radius:50%;
+    background:rgba(255,255,255,.88); border:2px solid #f4c430;
+    display:flex; align-items:center; justify-content:center;
+    font-size:16px; box-shadow:0 3px 0 rgba(0,0,0,.15);
+    transition:transform .08s; user-select:none;
+  }
+  #pause-btn:active { transform:scale(0.9); }
+
+  #music-btn {
+    position:absolute; bottom:12px; right:12px;
+    pointer-events:auto; cursor:pointer;
+    width:38px; height:38px; border-radius:50%;
+    background:rgba(255,255,255,.82); border:2px solid #f4c430;
+    display:none; align-items:center; justify-content:center;
+    font-size:18px; box-shadow:0 3px 0 rgba(0,0,0,.12);
+    transition:transform .08s; user-select:none; z-index:10;
+  }
+  #music-btn.show { display:flex; }
+  #music-btn:active { transform:scale(0.9); }
+
+  #pPause {
+    position:absolute; inset:0;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:14px;
+    pointer-events:none; opacity:0; transition:opacity .2s;
+    background:rgba(10,10,30,0.55); backdrop-filter:blur(3px);
+  }
+  #pPause.show { opacity:1; pointer-events:auto; }
+
+  @keyframes pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.05);opacity:.75} }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c"></canvas>
+
+  <div id="hud">
+    <div id="coin-hud">🪙 <span id="coin-val">0</span></div>
+    <div id="score-hud">0</div>
+    <div id="best-hud">BEST ⭐<br><span id="bv">0</span></div>
+    <div id="pause-btn">⏸</div>
+  </div>
+  <div id="music-btn">🎵</div>
+
+  <div class="panel show" id="pStart">
+    <div class="card">
+      <div class="title">🐱 Flappy Cat</div>
+      <div style="font-size:48px;margin:6px 0">🏙️</div>
+      <div class="hint">TAP or SPACE to fly!</div>
+    </div>
+    <div class="btn" id="btnS">▶ PLAY</div>
+  </div>
+
+  <div class="panel" id="pOver">
+    <div class="card">
+      <div class="title" style="font-size:clamp(18px,5vw,24px)">😿 Game Over</div>
+      <div style="height:8px"></div>
+      <div class="lbl">SCORE</div>
+      <div class="score-big" id="goSc">0</div>
+      <div class="lbl" style="margin-top:6px">🪙 COINS</div>
+      <div style="font-size:clamp(20px,5vw,26px);color:#f59e0b" id="goCoin">0</div>
+      <div class="row">
+        <div class="col"><div class="lbl">⭐ BEST</div><div class="best-v" id="goHi">0</div></div>
+        <div class="col"><div class="lbl">💙 LOWEST</div><div class="low-v" id="goLo">—</div></div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <div class="btn" id="btnR">↺ RETRY</div>
+      <div class="btn" style="background:#e0e0e0;border-color:#aaa;box-shadow:0 5px 0 #888;" id="btnMenu">🏠 MENU</div>
+    </div>
+  </div>
+
+  <div id="pPause">
+    <div class="card">
+      <div class="title" style="font-size:clamp(20px,5vw,26px)">⏸ Paused</div>
+      <div style="height:6px"></div>
+      <div class="lbl">SCORE</div>
+      <div style="font-size:clamp(28px,7vw,38px);color:#1a1a2e" id="pauseSc">0</div>
+    </div>
+    <div class="btn-row">
+      <div class="btn" id="btnResume">▶ RESUME</div>
+      <div class="btn" style="background:#e0e0e0;border-color:#aaa;box-shadow:0 5px 0 #888;" id="btnPR">↺ RESTART</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+//  CANVAS SETUP
+// ══════════════════════════════════════════
+const cv  = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const W   = 430, H = 720;
+cv.width  = W; cv.height = H;
+
+// UI
+const pStart  = document.getElementById('pStart');
+const pOver   = document.getElementById('pOver');
+const pPause  = document.getElementById('pPause');
+const hud     = document.getElementById('hud');
+const coinVal = document.getElementById('coin-val');
+const scHud   = document.getElementById('score-hud');
+const bvHud   = document.getElementById('bv');
+const goSc    = document.getElementById('goSc');
+const goCoin  = document.getElementById('goCoin');
+const goHi    = document.getElementById('goHi');
+const goLo    = document.getElementById('goLo');
+const pauseSc = document.getElementById('pauseSc');
+const pauseBtn= document.getElementById('pause-btn');
+const musicBtn= document.getElementById('music-btn');
+
+// ══════════════════════════════════════════
+//  CONSTANTS
+// ══════════════════════════════════════════
+const GND_H    = 60;
+const CAT_X    = 90;
+const CAT_W    = 52, CAT_H = 46;
+const GRAVITY  = 0.42;
+const JUMP_V   = -9.2;
+const INIT_SPD = 3.0;
+const MAX_SPD  = 7.0;
+const OBS_BIRD = 'bird';
+const OBS_TREE = 'tree';
+const OBS_FREQ = 95;
+const COIN_FREQ= 55;
+const GRACE_FRAMES = 90;   // ← immune to collision for first 90 frames
+const HIT_RADIUS   = 13;   // ← slightly smaller hitbox
+
+// ══════════════════════════════════════════
+//  AUDIO (Web Audio API — Subway Surfers feel)
+// ══════════════════════════════════════════
+let audioCtx   = null;
+let musicOn    = true;
+let masterGain = null;
+let schedHandle= null;
+let seqTime    = 0;    // scheduler cursor (audio time)
+let seqStep    = 0;    // which step in pattern
+
+// Tempo: 128 BPM → quarter = 0.469s, 16th = 0.117s
+const BPM       = 128;
+const QUARTER   = 60 / BPM;
+const SIXTEENTH = QUARTER / 4;
+
+// ----- Note frequencies -----
+const N = {
+  D2:73.42, A2:110.00, G2:98.00, E2:82.41, Bb2:116.54,
+  D3:146.83, F3:174.61, G3:196.00, A3:220.00, Bb3:233.08,
+  D4:293.66, E4:329.63, Gb4:369.99, G4:392.00, A4:440.00, Bb4:466.16, B4:493.88,
+  D5:587.33, E5:659.25, Gb5:739.99, G5:783.99, A5:880.00,
+};
+
+// 32-step sequencer (2 bars of 16 steps each)
+// Each step = 1 sixteenth note
+// Melody: upbeat D-major reggae feel
+const MELODY_SEQ = [
+  // bar 1
+  {f:N.D4,d:0.9},{f:0},{f:N.Gb4,d:0.9},{f:0},
+  {f:N.A4,d:0.9},{f:0},{f:N.G4,d:0.5},{f:N.Gb4,d:0.5},
+  {f:N.E4,d:0.9},{f:0},{f:N.D4,d:0.9},{f:0},
+  {f:N.E4,d:0.5},{f:N.Gb4,d:0.5},{f:N.G4,d:0.9},{f:0},
+  // bar 2
+  {f:N.A4,d:0.9},{f:0},{f:N.Bb4,d:0.9},{f:0},
+  {f:N.A4,d:0.5},{f:N.G4,d:0.5},{f:N.Gb4,d:0.9},{f:0},
+  {f:N.E4,d:0.9},{f:0},{f:N.D4,d:1.8},{f:0},
+  {f:0},{f:0},{f:N.Gb4,d:0.5},{f:N.A4,d:0.5},
+];
+
+// Bass line (sub bass + melody line)
+const BASS_SEQ = [
+  {f:N.D2,d:1.8},{f:0},{f:0},{f:0},
+  {f:N.A2,d:0.9},{f:0},{f:0},{f:0},
+  {f:N.G2,d:1.8},{f:0},{f:0},{f:0},
+  {f:N.A2,d:0.9},{f:0},{f:0},{f:0},
+  {f:N.D2,d:1.8},{f:0},{f:0},{f:0},
+  {f:N.A2,d:0.9},{f:0},{f:0},{f:0},
+  {f:N.Bb2,d:1.8},{f:0},{f:0},{f:0},
+  {f:N.A2,d:0.9},{f:0},{f:0},{f:0},
+];
+
+// Drum pattern (32 steps)
+// K=kick, S=snare, H=hi-hat
+const DRUMS = [
+  'KH','H','SH','H', 'KH','H','SH','H',
+  'KH','H','SH','H', 'KH','KH','SH','H',
+  'KH','H','SH','H', 'KH','H','SH','H',
+  'KH','H','SH','H', 'KH','H','SH','H',
+];
+
+function getAC() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = musicOn ? 0.18 : 0;
+    masterGain.connect(audioCtx.destination);
+  }
+  return audioCtx;
+}
+
+// --- drum synthesis ---
+function playKick(ac, t) {
+  const o = ac.createOscillator();
+  const g = ac.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(160, t);
+  o.frequency.exponentialRampToValueAtTime(40, t + 0.18);
+  g.gain.setValueAtTime(0.6, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+  o.connect(g); g.connect(masterGain);
+  o.start(t); o.stop(t + 0.25);
+}
+function playSnare(ac, t) {
+  // tone part
+  const o = ac.createOscillator();
+  const og= ac.createGain();
+  o.type='triangle'; o.frequency.value=180;
+  og.gain.setValueAtTime(0.25, t);
+  og.gain.exponentialRampToValueAtTime(0.001, t+0.12);
+  o.connect(og); og.connect(masterGain);
+  o.start(t); o.stop(t+0.14);
+  // noise part
+  const buf = ac.createBuffer(1, ac.sampleRate*0.12, ac.sampleRate);
+  const d   = buf.getChannelData(0);
+  for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+  const src = ac.createBufferSource();
+  const bpf = ac.createBiquadFilter();
+  const ng  = ac.createGain();
+  src.buffer = buf;
+  bpf.type='bandpass'; bpf.frequency.value=3000; bpf.Q.value=0.8;
+  ng.gain.setValueAtTime(0.18, t);
+  ng.gain.exponentialRampToValueAtTime(0.001, t+0.11);
+  src.connect(bpf); bpf.connect(ng); ng.connect(masterGain);
+  src.start(t); src.stop(t+0.13);
+}
+function playHihat(ac, t) {
+  const buf = ac.createBuffer(1, ac.sampleRate*0.06, ac.sampleRate);
+  const d   = buf.getChannelData(0);
+  for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+  const src = ac.createBufferSource();
+  const hpf = ac.createBiquadFilter();
+  const g   = ac.createGain();
+  src.buffer = buf;
+  hpf.type='highpass'; hpf.frequency.value=8000;
+  g.gain.setValueAtTime(0.06, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t+0.05);
+  src.connect(hpf); hpf.connect(g); g.connect(masterGain);
+  src.start(t); src.stop(t+0.07);
+}
+function playMelodyNote(ac, freq, t, dur) {
+  if (!freq) return;
+  const o  = ac.createOscillator();
+  const g  = ac.createGain();
+  o.type='square'; o.frequency.value=freq;
+  // slight detune for warmth
+  o.detune.value = 4;
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(0.08, t+0.01);
+  g.gain.setValueAtTime(0.08, t + dur*SIXTEENTH*0.7);
+  g.gain.linearRampToValueAtTime(0, t + dur*SIXTEENTH*0.92);
+  o.connect(g); g.connect(masterGain);
+  o.start(t); o.stop(t + dur*SIXTEENTH);
+}
+function playBassNote(ac, freq, t, dur) {
+  if (!freq) return;
+  const o  = ac.createOscillator();
+  const g  = ac.createGain();
+  o.type='sawtooth'; o.frequency.value=freq;
+  const lpf = ac.createBiquadFilter();
+  lpf.type='lowpass'; lpf.frequency.value=400;
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(0.14, t+0.02);
+  g.gain.setValueAtTime(0.14, t + dur*SIXTEENTH*0.75);
+  g.gain.linearRampToValueAtTime(0, t + dur*SIXTEENTH*0.92);
+  o.connect(lpf); lpf.connect(g); g.connect(masterGain);
+  o.start(t); o.stop(t + dur*SIXTEENTH);
+}
+
+function scheduleBgMusic() {
+  if (!audioCtx || !musicOn || !masterGain) return;
+  const ac    = audioCtx;
+  const ahead = 0.25;
+  const now   = ac.currentTime;
+
+  while (seqTime < now + ahead) {
+    const step = seqStep % 32;
+
+    // Melody
+    const mn = MELODY_SEQ[step];
+    if (mn && mn.f) playMelodyNote(ac, mn.f, seqTime, mn.d || 1);
+
+    // Bass
+    const bn = BASS_SEQ[step];
+    if (bn && bn.f) playBassNote(ac, bn.f, seqTime, bn.d || 1);
+
+    // Drums
+    const dr = DRUMS[step] || '';
+    if (dr.includes('K')) playKick(ac, seqTime);
+    if (dr.includes('S')) playSnare(ac, seqTime);
+    if (dr.includes('H')) playHihat(ac, seqTime);
+
+    seqTime += SIXTEENTH;
+    seqStep++;
+  }
+
+  schedHandle = setTimeout(scheduleBgMusic, 120);
+}
+
+function startBgMusic() {
+  const ac = getAC();
+  if (ac.state === 'suspended') ac.resume();
+  seqTime = ac.currentTime + 0.05;
+  seqStep = 0;
+  scheduleBgMusic();
+}
+function stopBgMusic() {
+  if (schedHandle) { clearTimeout(schedHandle); schedHandle = null; }
+}
+function pauseBgMusic() { stopBgMusic(); }
+function resumeBgMusic() {
+  if (!musicOn) return;
+  const ac = getAC();
+  if (ac.state === 'suspended') ac.resume();
+  seqTime = ac.currentTime + 0.05;
+  scheduleBgMusic();
+}
+
+// --- SFX ---
+function playCoinSound() {
+  // Subway Surfers style: bright double "ding"
+  const ac = getAC();
+  const now = ac.currentTime;
+  [[N.G5, 0, 0.11],[N.D5*1.5, 0.08, 0.09]].forEach(([f,t,d])=>{
+    const o = ac.createOscillator();
+    const g = ac.createGain();
+    o.type='sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(0, now+t);
+    g.gain.linearRampToValueAtTime(0.22, now+t+0.008);
+    g.gain.exponentialRampToValueAtTime(0.001, now+t+d);
+    o.connect(g); g.connect(ac.destination);
+    o.start(now+t); o.stop(now+t+d+0.01);
+  });
+}
+function playJumpSound() {
+  const ac = getAC();
+  const now = ac.currentTime;
+  const o = ac.createOscillator();
+  const g = ac.createGain();
+  o.type='sine'; o.frequency.setValueAtTime(280,now); o.frequency.linearRampToValueAtTime(460,now+0.07);
+  g.gain.setValueAtTime(0.07,now); g.gain.linearRampToValueAtTime(0,now+0.1);
+  o.connect(g); g.connect(ac.destination);
+  o.start(now); o.stop(now+0.12);
+}
+function playDeathSound() {
+  const ac = getAC();
+  const now = ac.currentTime;
+  // Two descending tones
+  [[380,80,0],[220,60,0.15]].forEach(([f1,f2,t])=>{
+    const o=ac.createOscillator(); const g=ac.createGain();
+    o.type='sawtooth';
+    o.frequency.setValueAtTime(f1,now+t);
+    o.frequency.linearRampToValueAtTime(f2,now+t+0.28);
+    g.gain.setValueAtTime(0.09,now+t);
+    g.gain.linearRampToValueAtTime(0,now+t+0.32);
+    o.connect(g); g.connect(ac.destination);
+    o.start(now+t); o.stop(now+t+0.35);
+  });
+}
+
+function toggleMusic() {
+  musicOn = !musicOn;
+  musicBtn.textContent = musicOn ? '🎵' : '🔇';
+  if (masterGain) {
+    masterGain.gain.setTargetAtTime(musicOn ? 0.18 : 0, audioCtx.currentTime, 0.08);
+  }
+  if (musicOn) resumeBgMusic();
+  else stopBgMusic();
+}
+
+// ══════════════════════════════════════════
+//  PERSISTENT STORAGE
+// ══════════════════════════════════════════
+let bestScore   = parseInt(localStorage.getItem('fc_best')  || '0');
+let lowestScore = localStorage.getItem('fc_low') !== null ? parseInt(localStorage.getItem('fc_low')) : null;
+let totalCoins  = parseInt(localStorage.getItem('fc_coins') || '0');
+
+function savePersist(sc, coins) {
+  if (sc > bestScore) { bestScore = sc; localStorage.setItem('fc_best', bestScore); }
+  if (lowestScore === null || sc < lowestScore) { lowestScore = sc; localStorage.setItem('fc_low', lowestScore); }
+  totalCoins += coins; localStorage.setItem('fc_coins', totalCoins);
+}
+
+// ══════════════════════════════════════════
+//  GAME STATE
+// ══════════════════════════════════════════
+const S = {IDLE:0, PLAYING:1, DYING:2, PAUSED:3};
+let state = S.IDLE;
+let cat, obstacles, coins, particles, pops;
+let score, coinCount, spd, frame, graceTimer;
+
+function init() {
+  cat = { y:H/2-40, vy:0, angle:0, legPhase:0, tailPhase:0 };
+  obstacles = []; coins = []; particles = []; pops = [];
+  score = 0; coinCount = 0; spd = INIT_SPD; frame = 0;
+  graceTimer = GRACE_FRAMES; // ← no collision during grace period
+}
+
+// ══════════════════════════════════════════
+//  BACKGROUND
+// ══════════════════════════════════════════
+const bldFar  = Array.from({length:9}, (_,i) => ({x:i*60, w:38+Math.floor(Math.random()*22), h:120+Math.floor(Math.random()*180), shade:Math.floor(Math.random()*3)}));
+const bldNear = Array.from({length:6}, (_,i) => ({x:i*80+10, w:52+Math.floor(Math.random()*28), h:80+Math.floor(Math.random()*140), shade:Math.floor(Math.random()*3)}));
+let bgOff1=0, bgOff2=0, gndOff=0;
+
+function drawBuilding(x,y,w,h,shade){
+  const palettes=[{wall:'#a8cce0',win:'#b8e0f0',stripe:'#90b8d0'},{wall:'#c0d8e8',win:'#d0ebf8',stripe:'#a8c8dc'},{wall:'#d4e6f0',win:'#e4f2fa',stripe:'#bcd4e4'}];
+  const p=palettes[shade];
+  ctx.fillStyle=p.wall; ctx.fillRect(x,y,w,h);
+  ctx.fillStyle=p.stripe; ctx.fillRect(x+w-6,y,6,h);
+  const rows=Math.floor(h/22), cols=Math.floor(w/14);
+  for(let r=1;r<rows;r++) for(let c=0;c<cols;c++){
+    const wx=x+c*14+3, wy=y+r*22-14;
+    if(wy>y&&wy+10<y+h){ctx.fillStyle=Math.random()>0.25?p.win:'#8ab0c8'; ctx.fillRect(wx,wy,8,10);}
+  }
+}
+function drawVBuilding(x,y,w,h){
+  ctx.fillStyle='#b8d8ec'; ctx.fillRect(x,y,w,h);
+  ctx.fillStyle='#90b8cc'; ctx.font=`bold ${Math.round(w*0.6)}px 'Fredoka One',cursive`;
+  ctx.textAlign='center'; ctx.fillText('V',x+w/2,y+h*0.45); ctx.textAlign='left';
+  ctx.fillStyle='#d0eaf8';
+  for(let r=1;r<8;r++) for(let c=0;c<3;c++){const wx=x+c*15+3,wy=y+r*(h/9); if(wy>y+h*0.55) ctx.fillRect(wx,wy,10,8);}
+}
+function drawCloud(cx,cy,s){
+  ctx.fillStyle='rgba(255,255,255,0.76)';
+  [[cx,cy,22*s],[cx-28*s,cy+6*s,18*s],[cx+28*s,cy+8*s,16*s],[cx+10*s,cy-8*s,16*s],[cx-10*s,cy-4*s,20*s]]
+    .forEach(([x,y,r])=>{ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();});
+}
+function drawBG(){
+  // Blue sky
+  const sg=ctx.createLinearGradient(0,0,0,H-GND_H);
+  sg.addColorStop(0,'#1a6fc4'); sg.addColorStop(0.4,'#3a9bd5'); sg.addColorStop(1,'#87CEEB');
+  ctx.fillStyle=sg; ctx.fillRect(0,0,W,H-GND_H);
+  // Sun
+  const sunG=ctx.createRadialGradient(W*0.82,80,0,W*0.82,80,70);
+  sunG.addColorStop(0,'rgba(255,230,100,0.5)'); sunG.addColorStop(1,'rgba(255,180,0,0)');
+  ctx.fillStyle=sunG; ctx.fillRect(0,0,W,H-GND_H);
+  ctx.beginPath();ctx.arc(W*0.82,80,28,0,Math.PI*2);ctx.fillStyle='#ffe066';ctx.fill();
+  ctx.beginPath();ctx.arc(W*0.82,80,22,0,Math.PI*2);ctx.fillStyle='#fff4a0';ctx.fill();
+  // Clouds
+  drawCloud(80+(bgOff1*0.1%W),110,0.9);
+  drawCloud(240+(bgOff1*0.07%W),70,0.7);
+  drawCloud(360+(bgOff1*0.12%W),140,0.6);
+  const gndY=H-GND_H;
+  bldFar.forEach(b=>{const bx=((b.x-bgOff1*0.3)%(W+80)+W+80)%(W+80)-40; drawBuilding(bx,gndY-b.h,b.w,b.h,b.shade);});
+  bldNear.forEach((b,i)=>{const bx=((b.x-bgOff2*0.65)%(W+100)+W+100)%(W+100)-50; if(i===2) drawVBuilding(bx,gndY-b.h,b.w,b.h); else drawBuilding(bx,gndY-b.h,b.w,b.h,b.shade);});
+}
+function drawGround(){
+  const gy=H-GND_H;
+  const gg=ctx.createLinearGradient(0,gy,0,H);
+  gg.addColorStop(0,'#5cb85c'); gg.addColorStop(0.3,'#4cae4c'); gg.addColorStop(0.31,'#8b6914'); gg.addColorStop(1,'#6b4f10');
+  ctx.fillStyle=gg; ctx.fillRect(0,gy,W,GND_H);
+  ctx.strokeStyle='rgba(0,0,0,0.07)'; ctx.lineWidth=1;
+  for(let x=(gndOff%28)-28;x<W;x+=28){ctx.beginPath();ctx.moveTo(x,gy+18);ctx.lineTo(x+16,gy+GND_H);ctx.stroke();}
+  ctx.fillStyle='rgba(0,0,0,0.08)'; ctx.fillRect(0,gy,W,2);
+}
+
+// ══════════════════════════════════════════
+//  CAT
+// ══════════════════════════════════════════
+function drawCat(x,y,angle,legPhase,tailPhase,dead){
+  ctx.save(); ctx.translate(x,y); ctx.rotate(angle);
+  const cw=CAT_W, ch=CAT_H;
+  // Tail
+  ctx.save(); ctx.translate(-cw*0.38,ch*0.1);
+  ctx.rotate((Math.sin(tailPhase)*22*Math.PI)/180);
+  ['#f4a020','#f8b840','#f4a020','#f8b840','#fff'].forEach((c,i)=>{
+    const tr=Math.max(0.5,6.5-i); ctx.beginPath(); ctx.arc(-i*9,0,tr,0,Math.PI*2); ctx.fillStyle=c; ctx.fill();
+  }); ctx.restore();
+  // Body
+  ctx.beginPath(); ctx.ellipse(0,ch*0.18,cw*0.48,ch*0.42,0,0,Math.PI*2);
+  ctx.fillStyle='#f4a020'; ctx.fill(); ctx.strokeStyle='#c87a00'; ctx.lineWidth=1.8; ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(2,ch*0.28,cw*0.28,ch*0.3,0,0,Math.PI*2); ctx.fillStyle='#fff8e8'; ctx.fill();
+  ctx.strokeStyle='rgba(180,100,0,0.22)'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(-8,-ch*0.1); ctx.lineTo(-6,ch*0.35); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(3,-ch*0.15); ctx.lineTo(4,ch*0.3); ctx.stroke();
+  // Legs
+  const lSw=Math.sin(legPhase)*8;
+  ctx.strokeStyle='#c87a00'; ctx.lineWidth=5; ctx.lineCap='round';
+  [[cw*0.2,cw*0.2+lSw],[cw*0.35,cw*0.35-lSw],[-cw*0.2,-cw*0.2-lSw*0.6],[-cw*0.05,-cw*0.05+lSw*0.6]].forEach(([px,ex],i)=>{
+    ctx.beginPath(); ctx.moveTo(px,ch*0.45+i*0.01); ctx.lineTo(ex,ch*0.72); ctx.stroke();
+  });
+  // Head
+  const hx=cw*0.18, hy=-ch*0.38, hr=ch*0.38;
+  ctx.beginPath(); ctx.arc(hx,hy,hr,0,Math.PI*2); ctx.fillStyle='#f4a020'; ctx.fill(); ctx.strokeStyle='#c87a00'; ctx.lineWidth=1.8; ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(hx+2,hy+4,hr*0.62,hr*0.58,0,0,Math.PI*2); ctx.fillStyle='#fff8e8'; ctx.fill();
+  // Ears
+  const ew=Math.sin(tailPhase*1.5)*4;
+  [[-1,1],[1,-1]].forEach(([s1,s2])=>{
+    ctx.beginPath(); ctx.moveTo(hx+s1*hr*0.5,hy-hr*0.55); ctx.lineTo(hx+s1*hr*0.85,hy-hr*1.05+ew); ctx.lineTo(hx+s2*hr*0.05,hy-hr*0.65); ctx.closePath();
+    ctx.fillStyle='#f4a020'; ctx.fill(); ctx.strokeStyle='#c87a00'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(hx+s1*hr*0.5,hy-hr*0.6); ctx.lineTo(hx+s1*hr*0.76,hy-hr*0.95+ew); ctx.lineTo(hx+s2*hr*0.12,hy-hr*0.68); ctx.closePath();
+    ctx.fillStyle='#ffaabb'; ctx.fill();
+  });
+  // Eyes
+  if(!dead){
+    [[-0.3,0.32]].concat([[0.32,0.38]]).forEach(([a,b],i)=>{
+      ctx.beginPath(); ctx.arc(hx+(i?hr*0.32:hr*-0.3),hy-hr*0.05,hr*0.22,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill(); ctx.strokeStyle='#333'; ctx.lineWidth=1; ctx.stroke();
+      ctx.beginPath(); ctx.arc(hx+(i?hr*0.38:hr*-0.24),hy-hr*0.05,hr*0.13,0,Math.PI*2); ctx.fillStyle='#222'; ctx.fill();
+      ctx.beginPath(); ctx.arc(hx+(i?hr*0.43:hr*-0.19),hy-hr*0.1,hr*0.05,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
+    });
+  } else {
+    ctx.strokeStyle='#e00'; ctx.lineWidth=2.2;
+    [[hx-hr*0.3,hy-hr*0.05],[hx+hr*0.32,hy-hr*0.05]].forEach(([ex,ey])=>{
+      ctx.beginPath(); ctx.moveTo(ex-5,ey-5); ctx.lineTo(ex+5,ey+5); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ex+5,ey-5); ctx.lineTo(ex-5,ey+5); ctx.stroke();
+    });
+  }
+  // Nose
+  ctx.beginPath(); ctx.moveTo(hx+2,hy+hr*0.2); ctx.lineTo(hx-3,hy+hr*0.32); ctx.lineTo(hx+7,hy+hr*0.32); ctx.closePath(); ctx.fillStyle='#ff8899'; ctx.fill();
+  // Smile
+  ctx.strokeStyle='#a06030'; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.moveTo(hx+2,hy+hr*0.33); ctx.quadraticCurveTo(hx-4,hy+hr*0.5,hx-8,hy+hr*0.42); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(hx+2,hy+hr*0.33); ctx.quadraticCurveTo(hx+8,hy+hr*0.5,hx+12,hy+hr*0.42); ctx.stroke();
+  // Whiskers
+  ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=1;
+  [[-14,0.26],[-14,0.33],[-14,0.4]].forEach(([dx,r])=>{ctx.beginPath();ctx.moveTo(hx-2,hy+hr*r);ctx.lineTo(hx+dx,hy+hr*r);ctx.stroke();});
+  [[14,0.26],[14,0.33],[14,0.4]].forEach(([dx,r])=>{ctx.beginPath();ctx.moveTo(hx+2,hy+hr*r);ctx.lineTo(hx+dx+6,hy+hr*r);ctx.stroke();});
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════
+//  ENEMY BIRD
+// ══════════════════════════════════════════
+function drawEnemyBird(x,y,wp){
+  ctx.save(); ctx.translate(x,y);
+  const wf=Math.sin(wp)*0.5, w=40, h=30;
+  ctx.beginPath();ctx.ellipse(0,0,w*0.42,h*0.38,0,0,Math.PI*2);ctx.fillStyle='#2255cc';ctx.fill();ctx.strokeStyle='#1133aa';ctx.lineWidth=1.5;ctx.stroke();
+  ctx.beginPath();ctx.ellipse(4,4,w*0.25,h*0.25,0,0,Math.PI*2);ctx.fillStyle='#aaddff';ctx.fill();
+  ctx.save();ctx.translate(-5,-8);ctx.rotate(-0.3+wf);
+  ctx.beginPath();ctx.ellipse(0,0,w*0.45,h*0.28,0.4,0,Math.PI*2);ctx.fillStyle='#dd2233';ctx.fill();ctx.strokeStyle='#aa1122';ctx.lineWidth=1;ctx.stroke();ctx.restore();
+  ctx.save();ctx.translate(-5,4);ctx.rotate(0.3-wf);
+  ctx.beginPath();ctx.ellipse(0,0,w*0.38,h*0.22,-0.3,0,Math.PI*2);ctx.fillStyle='#4477ee';ctx.fill();ctx.restore();
+  ctx.beginPath();ctx.arc(12,-4,5,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+  ctx.beginPath();ctx.arc(13,-4,2.5,0,Math.PI*2);ctx.fillStyle='#111';ctx.fill();
+  ctx.beginPath();ctx.arc(14,-5,1,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+  ctx.beginPath();ctx.moveTo(16,-2);ctx.lineTo(24,0);ctx.lineTo(16,3);ctx.closePath();ctx.fillStyle='#ffcc00';ctx.fill();ctx.strokeStyle='#cc9900';ctx.lineWidth=1;ctx.stroke();
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════
+//  TREE
+// ══════════════════════════════════════════
+function drawTree(x,y,s){
+  s=s||1; ctx.save(); ctx.translate(x,y);
+  ctx.fillStyle='#7a5020';ctx.fillRect(-7*s,-10*s,14*s,40*s);
+  ctx.fillStyle='#9a6830';ctx.fillRect(-4*s,-10*s,5*s,40*s);
+  ctx.fillStyle='#6a4018';ctx.beginPath();ctx.ellipse(0,30*s,16*s,5*s,0,0,Math.PI*2);ctx.fill();
+  [{cx:0,cy:-45*s,r:30*s,c:'#2aaa88'},{cx:-14*s,cy:-30*s,r:22*s,c:'#22997a'},{cx:14*s,cy:-28*s,r:22*s,c:'#33bb99'},
+   {cx:0,cy:-22*s,r:28*s,c:'#33bb99'},{cx:-8*s,cy:-58*s,r:18*s,c:'#22997a'},{cx:8*s,cy:-56*s,r:16*s,c:'#2aaa88'}]
+    .forEach(l=>{ctx.beginPath();ctx.arc(l.cx,l.cy,l.r,0,Math.PI*2);ctx.fillStyle=l.c;ctx.fill();});
+  ctx.fillStyle='rgba(255,255,255,0.12)';
+  [-12,-4,6,14].forEach(lx=>[-55,-42,-30].forEach(ly=>{ctx.beginPath();ctx.arc(lx*s,ly*s,4*s,0,Math.PI*2);ctx.fill();}));
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════
+//  COIN
+// ══════════════════════════════════════════
+function drawCoin(x,y,phase){
+  const sx=Math.abs(Math.cos(phase));
+  ctx.save(); ctx.translate(x,y); ctx.scale(Math.max(0.1,sx),1);
+  ctx.beginPath();ctx.arc(0,0,14,0,Math.PI*2);ctx.fillStyle='#f4c430';ctx.fill();ctx.strokeStyle='#c8960a';ctx.lineWidth=2.5;ctx.stroke();
+  ctx.beginPath();ctx.arc(0,0,9,0,Math.PI*2);ctx.fillStyle='#ffd700';ctx.fill();
+  ctx.fillStyle='#c8960a';ctx.font='bold 13px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('$',0,0.5);
+  ctx.beginPath();ctx.arc(-4,-5,3,0,Math.PI*2);ctx.fillStyle='rgba(255,255,255,0.45)';ctx.fill();
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════
+//  OBSTACLES
+// ══════════════════════════════════════════
+function spawnObstacle(){
+  const type=Math.random()<0.5?OBS_BIRD:OBS_TREE;
+  const minY=80, maxY=H-GND_H-100;
+  const y=minY+Math.random()*(maxY-minY);
+  obstacles.push({
+    type, x:W+20, y,
+    w:type===OBS_TREE?40:50, h:type===OBS_TREE?80:30,
+    wingPhase:0,
+    scale:type===OBS_TREE?(0.5+Math.random()*0.6):1,
+    vyBird:type===OBS_BIRD?(Math.random()-0.5)*1.5:0,
+    passed:false,
+  });
+}
+function spawnCoin(){
+  coins.push({x:W+10, y:80+Math.random()*(H-GND_H-140), phase:Math.random()*Math.PI*2, collected:false});
+}
+
+// ══════════════════════════════════════════
+//  PARTICLES
+// ══════════════════════════════════════════
+function spawnParticles(x,y){
+  const cols=['#f4c430','#ff8899','#f4a020','#fff','#aaddff','#ff4455'];
+  for(let i=0;i<24;i++){
+    const a=Math.random()*Math.PI*2, sp=2.5+Math.random()*7;
+    particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-3,life:1,color:cols[Math.floor(Math.random()*cols.length)],r:3+Math.random()*4});
+  }
+}
+function coinPop(x,y){ pops.push({x,y,life:1,txt:'+1🪙'}); }
+function drawParticles(){
+  particles=particles.filter(p=>p.life>0.02);
+  particles.forEach(p=>{
+    p.x+=p.vx;p.y+=p.vy;p.vy+=0.22;p.life-=0.032;
+    const r=Math.max(0.1,p.r*p.life);
+    ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);
+    ctx.fillStyle=p.color;ctx.globalAlpha=p.life;ctx.fill();ctx.globalAlpha=1;
+  });
+}
+function drawPops(){
+  pops=pops.filter(p=>p.life>0);
+  pops.forEach(p=>{
+    ctx.globalAlpha=p.life;ctx.fillStyle='#f4c430';
+    ctx.font=`bold ${Math.round(10+8*p.life)}px 'Fredoka One',cursive`;
+    ctx.fillText(p.txt,p.x-18,p.y);
+    p.y-=1.5;p.life-=0.025;ctx.globalAlpha=1;
+  });
+}
+
+// ══════════════════════════════════════════
+//  COLLISION — with grace period
+// ══════════════════════════════════════════
+function hitTest(){
+  if(graceTimer > 0) return false;
+
+  const cx = CAT_X, cy = cat.y, cr = HIT_RADIUS;
+
+  // Ground only — ceiling is a soft bounce (see update), NOT instant death
+  if(cy + cr > H - GND_H) return true;
+
+  for(const o of obstacles){
+    let bL, bR, bT, bB;
+    if(o.type === OBS_TREE){
+      // Tree is drawn at (o.x + o.w/2, o.y + 10) with scale o.scale
+      const tx = o.x + o.w / 2;
+      const ty = o.y + 10;
+      const s  = o.scale;
+      bL = tx - 20 * s;   bR = tx + 20 * s;
+      bT = ty - 68 * s;   bB = ty + 28 * s;
+    } else {
+      // Bird drawn at (o.x + o.w/2, o.y)
+      const bx = o.x + o.w / 2;
+      bL = bx - 16;   bR = bx + 16;
+      bT = o.y - 12;  bB = o.y + 12;
+    }
+    const nearX = Math.max(bL, Math.min(cx, bR));
+    const nearY = Math.max(bT, Math.min(cy, bB));
+    const dx = cx - nearX, dy = cy - nearY;
+    if(dx*dx + dy*dy < cr * cr) return true;
+  }
+  return false;
+}
+
+// ══════════════════════════════════════════
+//  UPDATE
+// ══════════════════════════════════════════
+function update(){
+  if(state===S.PAUSED) return;
+
+  frame++;
+  bgOff1+=0.8;
+  bgOff2+=state===S.PLAYING?spd*0.6:0.6;
+  gndOff+=state===S.PLAYING?spd:1.2;
+
+  if(state!==S.PLAYING) return;
+
+  // Count down grace period
+  if(graceTimer>0) graceTimer--;
+
+  // Soft ceiling — bounce instead of instant death
+  if(cat.y < 22){ cat.y = 22; cat.vy = Math.max(0, cat.vy); }
+
+  // Physics
+  cat.vy+=GRAVITY;
+  cat.y +=cat.vy;
+  cat.angle=Math.max(-0.52,Math.min(1.55,cat.vy*0.082));
+  cat.legPhase+=0.18;
+  cat.tailPhase+=0.09;
+
+  // Spawn: skip frame 0 (frame % OBS_FREQ also true at 0), use > 0 check
+  if(frame>0 && frame%OBS_FREQ===0) spawnObstacle();
+  if(frame>0 && frame%COIN_FREQ===0) spawnCoin();
+
+  // Move obstacles
+  for(let i=obstacles.length-1;i>=0;i--){
+    const o=obstacles[i];
+    o.x-=spd;
+    if(o.type===OBS_BIRD){
+      o.wingPhase+=0.22; o.y+=o.vyBird;
+      if(o.y<60||o.y>H-GND_H-80) o.vyBird*=-1;
+    }
+    if(!o.passed&&o.x+o.w<CAT_X){ o.passed=true; score++; scHud.textContent=score; if(score%5===0) spd=Math.min(spd+0.3,MAX_SPD); }
+    if(o.x+o.w<-60) obstacles.splice(i,1);
+  }
+
+  // Move coins
+  for(let i=coins.length-1;i>=0;i--){
+    const co=coins[i]; co.x-=spd; co.phase+=0.08;
+    const dx=CAT_X-co.x, dy=cat.y-co.y;
+    if(!co.collected&&Math.sqrt(dx*dx+dy*dy)<28){
+      co.collected=true; coinCount++; coinVal.textContent=coinCount;
+      coinPop(co.x,co.y-20); playCoinSound();
+    }
+    if(co.x<-30||co.collected) coins.splice(i,1);
+  }
+
+  // Collision check
+  if(hitTest()){
+    spawnParticles(CAT_X,cat.y);
+    state=S.DYING; cat.vy=-6;
+    playDeathSound();
+    setTimeout(()=>{
+      savePersist(score,coinCount);
+      goSc.textContent=score; goCoin.textContent=coinCount;
+      goHi.textContent=bestScore; goLo.textContent=lowestScore!==null?lowestScore:'—';
+      showPanel(pOver); hud.classList.remove('show'); musicBtn.classList.remove('show');
+      stopBgMusic();
+    },800);
+  }
+}
+
+// ══════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════
+function render(){
+  ctx.clearRect(0,0,W,H);
+  drawBG();
+  obstacles.forEach(o=>{if(o.type===OBS_TREE) drawTree(o.x+o.w/2,o.y+10,o.scale);});
+  drawGround();
+  obstacles.forEach(o=>{if(o.type===OBS_BIRD) drawEnemyBird(o.x+o.w/2,o.y,o.wingPhase);});
+  coins.forEach(co=>drawCoin(co.x,co.y,co.phase));
+
+  // Grace period: flash cat slightly to signal invincibility
+  if(graceTimer>0 && graceTimer%8<4) ctx.globalAlpha=0.55;
+  drawCat(CAT_X,cat.y,cat.angle,cat.legPhase,cat.tailPhase,state===S.DYING);
+  ctx.globalAlpha=1;
+
+  drawParticles();
+  drawPops();
+
+  if(state===S.PAUSED){
+    ctx.fillStyle='rgba(10,10,30,0.45)'; ctx.fillRect(0,0,W,H);
+  }
+}
+
+// ══════════════════════════════════════════
+//  MAIN LOOP
+// ══════════════════════════════════════════
+function loop(){ update(); render(); requestAnimationFrame(loop); }
+
+// ══════════════════════════════════════════
+//  UI FUNCTIONS
+// ══════════════════════════════════════════
+function showPanel(p){
+  [pStart,pOver,pPause].forEach(el=>el.classList.remove('show'));
+  if(p) p.classList.add('show');
+}
+
+function startGame(){
+  getAC().resume();
+  init();
+  state=S.PLAYING;
+  showPanel(null);
+  hud.classList.add('show');
+  musicBtn.classList.add('show');
+  coinVal.textContent='0';
+  scHud.textContent='0';
+  bvHud.textContent=bestScore;
+  cat.vy=JUMP_V;
+  playJumpSound();
+  stopBgMusic();
+  startBgMusic();
+}
+
+function pauseGame(){
+  if(state!==S.PLAYING) return;
+  state=S.PAUSED;
+  pauseSc.textContent=score;
+  showPanel(pPause);
+  pauseBtn.textContent='▶';
+  pauseBgMusic();
+}
+
+function resumeGame(){
+  if(state!==S.PAUSED) return;
+  state=S.PLAYING;
+  showPanel(null);
+  pauseBtn.textContent='⏸';
+  resumeBgMusic();
+}
+
+function goMenu(){
+  stopBgMusic();
+  state=S.IDLE; init();
+  showPanel(pStart);
+  hud.classList.remove('show');
+  musicBtn.classList.remove('show');
+  pauseBtn.textContent='⏸';
+}
+
+function jump(){
+  if(state===S.IDLE){ startGame(); return; }
+  if(state===S.PAUSED){ resumeGame(); return; }
+  if(state===S.PLAYING){ cat.vy=JUMP_V; cat.tailPhase+=1.2; playJumpSound(); }
+}
+
+// ══════════════════════════════════════════
+//  EVENTS
+// ══════════════════════════════════════════
+document.getElementById('btnS').addEventListener('click', startGame);
+document.getElementById('btnR').addEventListener('click', startGame);
+document.getElementById('btnMenu').addEventListener('click', goMenu);
+document.getElementById('btnResume').addEventListener('click', resumeGame);
+document.getElementById('btnPR').addEventListener('click', startGame);
+
+pauseBtn.addEventListener('click', e=>{
+  e.stopPropagation();
+  if(state===S.PLAYING) pauseGame();
+  else if(state===S.PAUSED) resumeGame();
+});
+musicBtn.addEventListener('click', e=>{ e.stopPropagation(); toggleMusic(); });
+
+// Fix: mobile fires touchstart THEN a synthetic click ~300ms later
+// → guard against double-jump that sends cat to ceiling
+let _lastTouch = 0;
+cv.addEventListener('touchstart', e=>{
+  e.preventDefault();
+  _lastTouch = Date.now();
+  jump();
+}, {passive:false});
+cv.addEventListener('click', e=>{
+  if(Date.now() - _lastTouch < 600) return; // ignore synthetic click after touch
+  jump();
+});
+document.addEventListener('keydown', e=>{
+  if(e.code==='Space'||e.key==='ArrowUp'){ e.preventDefault(); jump(); }
+  if(e.code==='Escape'||e.key==='p'||e.key==='P'){
+    if(state===S.PLAYING) pauseGame();
+    else if(state===S.PAUSED) resumeGame();
+  }
+});
+
+// ══════════════════════════════════════════
+//  START
+// ══════════════════════════════════════════
+init();
+loop();
+</script>
+</body>
+</html>
 
